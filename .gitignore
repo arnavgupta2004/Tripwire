@@ -35,3 +35,6 @@ data/
 .DS_Store
 .idea/
 .vscode/
+
+# Local planning docs
+TRIPWIRE_BUILD_SPEC.md
