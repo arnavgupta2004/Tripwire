@@ -1,5 +1,9 @@
 # Token Factory prices used for cost estimates, in USD per 1M tokens.
-# Keyed by model id. Fill from `uv run python scripts/check_models.py`, which
-# prints the pricing reported by GET /v1/models?verbose=true.
+# Keyed by model id. Source: GET /v1/models?verbose=true (`pricing.prompt` /
+# `pricing.completion` are USD per token), checked 2026-10-07 with
+# `uv run python scripts/check_models.py`.
 # A model missing here is logged with cost_usd = null ("unpriced").
-models: {}
+models:
+  nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B: {input_per_m: 0.06, output_per_m: 0.24}
+  nvidia/nemotron-3-super-120b-a12b: {input_per_m: 0.30, output_per_m: 0.90}
+  nvidia/Nemotron-3-Ultra-550b-a55b: {input_per_m: 1.00, output_per_m: 3.00}

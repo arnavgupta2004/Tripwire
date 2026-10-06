@@ -205,8 +205,10 @@ class ModelRouter:
 
         record = self._record(tier, model, purpose, resp, start, attempts, reasoning)
         message = resp.choices[0].message
-        reasoning_text = getattr(message, "reasoning_content", None) or (
-            (message.model_extra or {}).get("reasoning_content") if hasattr(message, "model_extra") else None
+        # Token Factory returns reasoning as `reasoning_content` (Super, Ultra) or `reasoning` (Nano).
+        extra = getattr(message, "model_extra", None) or {}
+        reasoning_text = (
+            getattr(message, "reasoning_content", None) or extra.get("reasoning_content") or extra.get("reasoning")
         )
         return ChatResult(
             content=strip_reasoning(message.content),

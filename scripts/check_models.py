@@ -28,6 +28,21 @@ def tier_candidates(nemotron_ids: list[str], tier: str) -> list[str]:
     return sorted(matches, key=lambda m: ("base" in m.lower(), len(m), m))
 
 
+def describe(extra: dict) -> str:
+    """Price per 1M tokens and features from the verbose model listing."""
+    parts = []
+    pricing = extra.get("pricing") or {}
+    try:
+        per_m_in = float(pricing.get("prompt")) * 1e6
+        per_m_out = float(pricing.get("completion")) * 1e6
+        parts.append(f"${per_m_in:.2f} in / ${per_m_out:.2f} out per 1M")
+    except (TypeError, ValueError):
+        pass
+    if extra.get("supported_features"):
+        parts.append("features: " + ", ".join(extra["supported_features"]))
+    return f"  ({'; '.join(parts)})" if parts else ""
+
+
 def ping(client: OpenAI, model: str) -> bool:
     start = time.perf_counter()
     try:
@@ -65,7 +80,9 @@ def main() -> int:
 
     print(f"Token Factory: {base_url}")
     try:
-        all_ids = sorted(m.id for m in client.models.list())
+        listing = list(client.models.list(extra_query={"verbose": "true"}))
+        all_ids = sorted(m.id for m in listing)
+        details = {m.id: (m.model_extra or {}) for m in listing}
     except AuthenticationError:
         print("error: authentication failed. Check NEBIUS_API_KEY.")
         return 1
@@ -77,7 +94,7 @@ def main() -> int:
     nemotron_ids = [m for m in all_ids if "nemotron" in m.lower()]
     print(f"Nemotron models ({len(nemotron_ids)}):")
     for m in nemotron_ids:
-        print(f"  {m}")
+        print(f"  {m}{describe(details.get(m, {}))}")
     print()
 
     chosen: dict[str, str] = {}

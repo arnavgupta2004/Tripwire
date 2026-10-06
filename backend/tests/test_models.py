@@ -50,6 +50,12 @@ def test_reasoning_content_and_think_tags_are_separated(make_router):
     assert result.reasoning == "deep thoughts"
 
 
+def test_reasoning_field_named_reasoning_is_read(make_router):
+    reply = completion("391")
+    reply.choices[0].message.__pydantic_extra__["reasoning"] = "17*23 is 391"
+    assert make_router(FakeClient([reply])).chat("nano", [], purpose="t", reasoning=True).reasoning == "17*23 is 391"
+
+
 def test_missing_tier_raises(make_router, settings):
     router = make_router(FakeClient([]), settings=Settings(api_key="x", models={"nano": "n"}))
     with pytest.raises(ModelError, match="NEMOTRON_SUPER_MODEL"):

@@ -1,8 +1,18 @@
 # Models: Token Factory + Nemotron 3
 
-How Tripwire calls models, and what the docs say about each capability. Items
-marked **(live: pending)** still need confirming against the real endpoint with
-`scripts/check_models.py` and the `live` tests.
+How Tripwire calls models, what the docs say about each capability, and what
+we verified against the live endpoint on 2026-10-07 (marked **verified**).
+
+## Models in use
+
+| Tier | Model id | Context | Price (USD per 1M, in / out) |
+|---|---|---|---|
+| Nano | `nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B` | 262k | $0.06 / $0.24 |
+| Super | `nvidia/nemotron-3-super-120b-a12b` | 262k | $0.30 / $0.90 |
+| Ultra | `nvidia/Nemotron-3-Ultra-550b-a55b` | 1M | $1.00 / $3.00 |
+
+All three list `supported_features: ["tools", "reasoning"]`. Token Factory also
+serves `nvidia/Nemotron-3_5-Lightning`, which Tripwire doesn't use.
 
 ## Endpoint
 
@@ -27,13 +37,15 @@ marked **(live: pending)** still need confirming against the real endpoint with
   `"auto"` or a named function. The model returns tool calls but doesn't run them
   ([function calling](https://docs.tokenfactory.nebius.com/ai-models-inference/function-calling)).
   The docs don't list which models support it. Check each model's
-  `supported_features` in the verbose model list. **(live: pending)**
+  `supported_features` in the verbose model list. **Verified:** all three tiers
+  list `tools`, and Super and Nano both returned a correct native `tool_calls`
+  entry for a simple weather function.
 - Nemotron 3 Nano and Super use the Qwen3-Coder tool-call format in vLLM/SGLang
   (`--tool-call-parser qwen3_coder`)
   ([Nano card](https://huggingface.co/nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16),
   [Super deployment notes](https://docs.vast.ai/examples/text-generation/nemotron-3-super)).
-  Whether Token Factory exposes these as native `tool_calls` is what decides the
-  planner mode. **(live: pending)**
+  Token Factory exposes these as native `tool_calls` (verified above), so the
+  planner defaults to native mode.
 - The planner supports both modes (`PLANNER_TOOL_MODE=native|json`). JSON mode
   describes the tools in the prompt and asks for one JSON action per step. The
   planner also switches to JSON mode for the rest of the session if a native
@@ -51,6 +63,8 @@ marked **(live: pending)** still need confirming against the real endpoint with
   retried once without it. The reply is then parsed tolerantly: `<think>` blocks
   and code fences are stripped, and the first JSON object is taken. Every caller
   fails closed when parsing fails.
+- **Verified:** strict `json_schema` works on Nano and Ultra and returns a bare
+  JSON object.
 
 ## Reasoning on/off
 
@@ -65,9 +79,16 @@ marked **(live: pending)** still need confirming against the real endpoint with
 - Reasoning text arrives in `message.reasoning_content`, separate from
   `content`. Some deployments leave `<think>…</think>` inline, so the router
   strips that from `content` either way.
-- Token Factory's docs have no reasoning page, so whether it forwards
-  `chat_template_kwargs` is **(live: pending)**. If it doesn't, Nano calls will
-  show reasoning tokens in `tokens_out` and higher latency.
+- **Verified:** Token Factory forwards `chat_template_kwargs`. On a one-number
+  arithmetic prompt, output dropped from 54–64 tokens with reasoning on to 4
+  tokens with it off, on all three tiers. Reasoning is on by default: an
+  unflagged "reply ok" cost Nano 52 output tokens.
+- **Verified:** the reasoning text field name differs by model. Nano returns
+  `reasoning`; Super and Ultra return `reasoning_content`. The router reads
+  both.
+- With reasoning off, Nano got 17×23 wrong. Tripwire never asks Nano for
+  arithmetic, but it's a reminder that reasoning-off Nano is a classifier, not a
+  calculator.
 - Tripwire sets the flag on every call:
 
 | Role | Tier | Reasoning | Temperature | Why |
