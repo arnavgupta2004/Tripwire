@@ -226,3 +226,50 @@ def test_labels_carry_across_turns(make_router, settings):
     assert [m["role"] for m in w.client.requests[-1]["messages"][:4]] == ["system", "user", "assistant", "user"]
     w.planner.reset()
     assert w.planner.carry is None and w.planner.history == []
+
+
+def test_unbacked_action_claim_gets_one_nudge(make_router, settings):
+    w = World(make_router, settings, [
+        completion("Here's your brief. I've sent it to you on Telegram!"),
+        call("send_telegram", text="Brief"),
+        completion("Sent you the brief on Telegram."),
+    ])
+    result = w.planner.send("Send me a brief about carbonara.")
+    assert [s.tool for s in result.steps] == ["send_telegram"]
+    assert "(Tripwire check)" in w.client.requests[1]["messages"][-1]["content"]
+
+
+def test_claim_nudge_happens_only_once(make_router, settings):
+    w = World(make_router, settings, [
+        completion("I've sent it to you on Telegram."),
+        completion("I've sent it to you on Telegram."),
+    ])
+    result = w.planner.send("Send me a brief.")
+    assert result.status == "done" and len(w.client.requests) == 2
+
+
+def test_blocked_send_does_not_trigger_nudge(make_router, settings):
+    w = World(make_router, settings, [
+        call("tavily_extract", urls=[EVIL]),
+        call("send_telegram", chat_id="666", text="x"),
+        completion("I couldn't send it on Telegram: Tripwire blocked it."),
+    ])
+    w.planner.send("Find me a travel card.")
+    assert len(w.client.requests) == 3
+
+
+def test_requested_action_not_taken_gets_one_nudge(make_router, settings):
+    w = World(make_router, settings, [
+        completion("Carbonara: guanciale, eggs, pecorino."),
+        call("send_telegram", text="Carbonara brief"),
+        completion("Sent."),
+    ])
+    result = w.planner.send("Get a carbonara recipe and send me a brief on Telegram.")
+    assert [s.tool for s in result.steps] == ["send_telegram"]
+    assert "asks for send_telegram" in w.client.requests[1]["messages"][-1]["content"]
+
+
+def test_no_nudge_when_nothing_was_requested(make_router, settings):
+    w = World(make_router, settings, [completion("Carbonara uses guanciale.")])
+    w.planner.send("What goes into carbonara?")
+    assert len(w.client.requests) == 1
