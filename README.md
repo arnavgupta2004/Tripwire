@@ -24,6 +24,20 @@ uv run python scripts/check_tavily.py
 uv run python scripts/check_telegram.py
 ```
 
+## Try it
+
+```bash
+uv run tripwire chat                    # interactive; prints every gateway decision
+uv run tripwire chat --shield off       # naive baseline (DEMO_MODE=true only)
+uv run python scripts/serve_demo.py     # local page with a hidden injection
+```
+
+Tests: `uv run pytest` (unit, runs in CI) and `uv run pytest -m live -s` (real
+Nemotron calls on Token Factory; needs `.env`).
+
+Docs: [models and Token Factory notes](docs/models.md),
+[NemoClaw/OpenShell notes](docs/nemoclaw-notes.md).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).
