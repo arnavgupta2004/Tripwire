@@ -84,18 +84,19 @@ def test_leak_deterministic_hit_skips_model(make_router):
 
 
 def test_leak_asks_model_for_softer_specifics(make_router):
-    client = FakeClient([json_reply({"leaking": True, "confidence": 0.8, "reason": "contains the user's name"})])
+    client = FakeClient([json_reply({"matches": ["Riya Kapoor"], "leaking": True, "reason": "contains a name"})])
     leak = NemotronClassifier(make_router(client)).check_leak(
         ToolCall("tavily_search", {"query": "Riya Kapoor tax refund"}), [TAX], SEARCH_FACTS
     )
-    assert leak.leaking is True
+    assert leak.leaking is True and "Riya Kapoor" in leak.rationale
     payload = user_payload(client)
     assert payload["private_excerpts"] == [TAX]
+    assert payload["outbound_text"] == "Riya Kapoor tax refund"
     assert client.requests[0]["extra_body"]["chat_template_kwargs"]["enable_thinking"] is False
 
 
 def test_leak_topic_search_passes(make_router):
-    client = FakeClient([json_reply({"leaking": False, "confidence": 0.9, "reason": "general topic"})])
+    client = FakeClient([json_reply({"matches": [], "leaking": False, "reason": "general topic"})])
     leak = NemotronClassifier(make_router(client)).check_leak(
         ToolCall("tavily_search", {"query": "income tax filing deadline India"}), [TAX], SEARCH_FACTS
     )
@@ -103,14 +104,23 @@ def test_leak_topic_search_passes(make_router):
 
 
 def test_leak_caps_private_excerpts(make_router):
-    client = FakeClient([json_reply({"leaking": False, "confidence": 0.9, "reason": "ok"})])
+    client = FakeClient([json_reply({"matches": [], "leaking": False, "reason": "ok"})])
     NemotronClassifier(make_router(client)).check_leak(
         ToolCall("tavily_search", {"query": "weather"}), ["a" * 5000, "b" * 5000, "c" * 5000], SEARCH_FACTS
     )
     assert sum(len(e) for e in user_payload(client)["private_excerpts"]) <= 6000
 
 
-@pytest.mark.parametrize("reply", [completion("not sure"), TIMEOUT])
+def test_leak_ungrounded_claim_is_not_a_leak(make_router):
+    """The model says 'leaking' but names things that aren't in the query."""
+    client = FakeClient([json_reply({"matches": ["ABCPK1234F", "Riya Kapoor"], "leaking": True, "reason": "PAN"})])
+    leak = NemotronClassifier(make_router(client)).check_leak(
+        ToolCall("tavily_search", {"query": "income tax refund timeline India"}), [TAX], SEARCH_FACTS
+    )
+    assert leak.leaking is False
+
+
+@pytest.mark.parametrize("reply", [completion("not sure"), TIMEOUT, json_reply({"leaking": True, "reason": "x"})])
 def test_leak_fails_closed(make_router, reply):
     leak = NemotronClassifier(make_router(FakeClient([reply] * 4))).check_leak(
         ToolCall("tavily_search", {"query": "weather"}), [TAX], SEARCH_FACTS
