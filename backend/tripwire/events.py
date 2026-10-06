@@ -36,6 +36,22 @@ class GatewayEvent:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class BlockExplanation:
+    """A plain-English explanation generated in the background for a deterministic
+    block, after the block already happened. Attached to the decision by call_id."""
+
+    call_id: str
+    explanation: str
+    evidence: str
+    rule_id: str
+    kind: str = "block_explanation"
+    ts: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 Subscriber = Callable[[Any], None]
 
 

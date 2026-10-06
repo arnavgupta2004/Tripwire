@@ -89,3 +89,8 @@ class StubJudge:
         if facts.get("data.confidentiality") == "private":
             return Ruling(Verdict.BLOCK, f"{call.tool} would move private data on instructions the user didn't give.")
         return Ruling(Verdict.NEEDS_APPROVAL, f"{call.tool} wasn't clearly requested; asking the user to confirm.")
+
+    def explain_block(self, case: JudgeCase) -> Ruling:
+        self.calls.append(case.call)
+        evidence = next((s for s in sorted(case.data_label.sources) if s.startswith(("web:", "file:"))), "unknown")
+        return Ruling(case.escalation.verdict, f"Tripwire blocked {case.call.tool} to keep your data safe.", evidence)

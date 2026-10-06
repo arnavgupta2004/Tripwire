@@ -122,12 +122,16 @@ class Gateway:
         classifier: IntentClassifier,
         judge: Judge,
         bus: EventBus | None = None,
+        explainer: Any | None = None,
     ) -> None:
         self.registry = registry
         self.engine = engine
         self.classifier = classifier
         self.judge = judge
         self.bus = bus or EventBus()
+        # Optional AsyncExplainer: fills in a plain-English reason for deterministic
+        # blocks in the background, without delaying the block itself.
+        self.explainer = explainer
 
     def check(self, call: ToolCall, ctx: TurnContext) -> Decision:
         return self._assess(call, ctx).decision
@@ -213,7 +217,19 @@ class Gateway:
         decision = self._decide(call, ctx, facts, history, ctx.label.join(args_label))
         a = _Assessment(spec, destination, ctx.label, args_label, decision)
         self._emit(call, a)
+        self._maybe_explain(call, ctx, facts, decision, a.data_label)
         return a
+
+    def _maybe_explain(
+        self, call: ToolCall, ctx: TurnContext, facts: Facts, decision: Decision, data_label: Label
+    ) -> None:
+        """A deterministic block carries no model explanation. Ask for one in the background."""
+        if self.explainer is None:
+            return
+        if decision.verdict is not Verdict.BLOCK or decision.models or decision.explanation:
+            return
+        case = JudgeCase(call, ctx.instruction.value, facts, decision, list(ctx.history), data_label)
+        self.explainer.request(case)
 
     def _decide(
         self, call: ToolCall, ctx: TurnContext, facts: Facts, history: list[Facts], data_label: Label
