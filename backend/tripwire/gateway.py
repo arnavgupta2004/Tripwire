@@ -29,6 +29,12 @@ class Intent:
 
 
 @dataclass(frozen=True)
+class Leak:
+    leaking: bool
+    rationale: str
+
+
+@dataclass(frozen=True)
 class Ruling:
     verdict: Verdict
     explanation: str
@@ -40,6 +46,10 @@ class IntentClassifier(Protocol):
     tier: str
 
     def classify(self, call: ToolCall, instruction: str, facts: Facts) -> Intent: ...
+
+    def check_leak(self, call: ToolCall, private_texts: list[str], facts: Facts) -> Leak:
+        """Do the call's arguments (query, URL) contain private specifics from these texts?"""
+        ...
 
 
 class Judge(Protocol):
@@ -137,7 +147,7 @@ class Gateway:
 
         destination = spec.destination_of(call)
         args_label = join(*(v.label for v in ctx.lookup_all(_handles_in(call.args))))
-        facts = call_facts(call.tool, spec.side_effect, destination, ctx.label, args_label)
+        facts = call_facts(call.tool, spec.side_effect, destination, ctx.label, args_label, spec.egress)
         history = [record_facts(r) for r in ctx.executed]
 
         decision = self._decide(call, ctx, facts, history)
@@ -151,13 +161,19 @@ class Gateway:
 
         result = self.engine.evaluate(facts, history)
         if isinstance(result, Classify):
-            intent = self.classifier.classify(call, instruction, facts)
+            if result.rule.classifier == "leak":
+                private_texts = [str(v.value) for v in ctx.private_values()]
+                leak = self.classifier.check_leak(call, private_texts, facts)
+                signals, rationale = {"leaking": leak.leaking}, leak.rationale
+            else:
+                intent = self.classifier.classify(call, instruction, facts)
+                signals, rationale = {"aligned": intent.aligned}, intent.rationale
             models.append(self.classifier.tier)
-            resolved = self.engine.resolve(result, facts, intent.aligned)
+            resolved = self.engine.resolve(result, facts, signals)
             result = Decision(
                 resolved.verdict,
                 resolved.rule_id,
-                f"{resolved.reason} Classifier: {intent.rationale}",
+                f"{resolved.reason} Classifier: {rationale}",
                 models=tuple(models),
             )
 

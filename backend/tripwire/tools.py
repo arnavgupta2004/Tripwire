@@ -52,6 +52,9 @@ class ToolSpec:
     output_label: OutputLabeler
     handler: Handler
     destination: DestinationFn | None = None
+    # The call's arguments (a search query, a URL) leave the machine even if the
+    # tool is read-only, so private specifics in them would leak.
+    egress: bool = False
 
     def __post_init__(self) -> None:
         if self.side_effect is SideEffect.OUTBOUND and self.destination is None:
@@ -178,8 +181,12 @@ def build_default_registry(
         return web_label(str(call.args.get("url", "unknown")))
 
     specs = [
-        ToolSpec("tavily_search", SideEffect.NONE, fixed_label(_web_label_for_search), stubs["tavily_search"]),
-        ToolSpec("tavily_extract", SideEffect.NONE, fixed_label(_web_label_for_extract), stubs["tavily_extract"]),
+        ToolSpec(
+            "tavily_search", SideEffect.NONE, fixed_label(_web_label_for_search), stubs["tavily_search"], egress=True
+        ),
+        ToolSpec(
+            "tavily_extract", SideEffect.NONE, fixed_label(_web_label_for_extract), stubs["tavily_extract"], egress=True
+        ),
         ToolSpec("read_file", SideEffect.NONE, fixed_label(private_file), stubs["read_file"]),
         ToolSpec("search_files", SideEffect.NONE, fixed_label(_file_label_for_search), stubs["search_files"]),
         ToolSpec("recall", SideEffect.NONE, stored_label, stubs["recall"]),
@@ -198,6 +205,7 @@ def build_default_registry(
             fixed_label(fetched_page),
             stubs["fetch_url"],
             destination=lambda call: Destination.EXTERNAL,
+            egress=True,
         ),
     ]
     registry = ToolRegistry()

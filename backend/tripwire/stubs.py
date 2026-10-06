@@ -4,11 +4,13 @@ Used in tests and offline runs. Phase 2 adds the real model-backed versions
 behind the same IntentClassifier / Judge interfaces.
 """
 
+import json
+import re
 from collections.abc import Mapping
 from urllib.parse import urlparse
 
 from tripwire.decision import Decision, Verdict
-from tripwire.gateway import Intent, Ruling
+from tripwire.gateway import Intent, Leak, Ruling
 from tripwire.policy.engine import Facts
 from tripwire.tools import ToolCall
 
@@ -19,6 +21,15 @@ DEFAULT_INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
     "remember": ("remember", "memorize", "keep in mind"),
     "fetch_url": ("fetch", "open", "visit", "download", "check the link"),
 }
+
+
+# Tokens specific enough to identify someone: anything with a digit (IDs,
+# amounts, account numbers), and canary markers.
+_SPECIFIC = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-_/.]*\d[A-Za-z0-9\-_/.]*|CANARY-[A-Za-z0-9]+")
+
+
+def private_specifics(texts: list[str]) -> set[str]:
+    return {t.lower() for text in texts for t in _SPECIFIC.findall(text) if len(t) >= 4}
 
 
 def _target(call: ToolCall) -> str:
@@ -56,6 +67,14 @@ class StubClassifier:
             if not target or target.lower() not in text:
                 return Intent(False, f"the user never named the destination {target or '(unknown)'}.")
         return Intent(True, f"the user's instruction asks for {call.tool}.")
+
+    def check_leak(self, call: ToolCall, private_texts: list[str], facts: Facts) -> Leak:
+        self.calls.append(call)
+        query = json.dumps(dict(call.args), default=str).lower()
+        hits = sorted(t for t in private_specifics(private_texts) if t in query)
+        if hits:
+            return Leak(True, f"the query contains private details: {', '.join(hits[:3])}.")
+        return Leak(False, "the query contains no private specifics.")
 
 
 class StubJudge:

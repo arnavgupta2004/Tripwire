@@ -141,10 +141,56 @@ def test_r2_private_to_self_from_trusted_context_allows(engine):
     assert d.rule_id == "R0.trusted_side_effect"
 
 
-def test_r2_private_to_self_with_untrusted_context_needs_approval(engine):
+def test_r2_private_to_self_with_untrusted_context_escalates(engine):
     d = engine.evaluate(facts("send_telegram", "outbound", "self", context=join(USER, FILE, WEB)))
-    assert d.verdict is Verdict.NEEDS_APPROVAL
-    assert d.rule_id == "R2.private_outbound"
+    assert d.verdict is Verdict.ESCALATE
+    assert d.rule_id == "R2.private_outbound_untrusted"
+
+
+def test_r2_private_to_external_with_untrusted_context_escalates(engine):
+    d = engine.evaluate(facts("send_telegram", "outbound", "external", context=join(USER, FILE, WEB)))
+    assert d.verdict is Verdict.ESCALATE
+    assert d.rule_id == "R2.private_outbound_untrusted"
+
+
+def test_r2_trusted_context_is_plain_approval_not_escalation(engine):
+    d = engine.evaluate(facts("send_telegram", "outbound", "external", context=join(USER, FILE)))
+    assert (d.verdict, d.rule_id) == (Verdict.NEEDS_APPROVAL, "R2.private_outbound")
+
+
+# --- R5 query egress ---------------------------------------------------------
+
+
+@pytest.mark.parametrize("tool", ["tavily_search", "tavily_extract"])
+def test_r5_search_with_private_context_goes_to_leak_check(engine, tool):
+    pending = engine.evaluate(call_facts(tool, "none", None, join(USER, FILE), BOTTOM, egress=True))
+    assert isinstance(pending, Classify)
+    assert pending.rule.id == "R5.query_egress"
+    assert pending.rule.classifier == "leak"
+
+
+def test_r5_no_leak_allows_and_leak_needs_approval(engine):
+    f = call_facts("tavily_search", "none", None, join(USER, FILE), BOTTOM, egress=True)
+    pending = engine.evaluate(f)
+    assert engine.resolve(pending, f, {"leaking": False}).verdict is Verdict.ALLOW
+    leak = engine.resolve(pending, f, {"leaking": True})
+    assert (leak.verdict, leak.rule_id) == (Verdict.NEEDS_APPROVAL, "R5.query_egress")
+
+
+def test_r5_not_triggered_without_private_data(engine):
+    d = engine.evaluate(call_facts("tavily_search", "none", None, USER, BOTTOM, egress=True))
+    assert d.rule_id == "R4.read_only_trusted"
+
+
+def test_r5_not_triggered_for_non_egress_reads(engine):
+    d = engine.evaluate(facts("read_file", "none", context=join(USER, FILE)))
+    assert d.rule_id == "R4.read_only_trusted"
+
+
+def test_r3_still_wins_over_r5_for_fetch_after_private_read(engine):
+    history = [ran("read_file", "none", FILE)]
+    f = call_facts("fetch_url", "outbound", "external", join(USER, FILE), BOTTOM, egress=True)
+    assert engine.evaluate(f, history).rule_id == "R3.exfiltration_chain"
 
 
 def test_r2_public_outbound_is_not_r2(engine):
@@ -184,26 +230,26 @@ def test_r1_not_triggered_by_reads(engine):
 
 def test_r1_aligned_public_self_allows(engine):
     f = facts("send_telegram", "outbound", "self", context=join(USER, WEB))
-    d = engine.resolve(classify(engine, f), f, aligned=True)
+    d = engine.resolve(classify(engine, f), f, {"aligned": True})
     assert d.verdict is Verdict.ALLOW and d.rule_id == "R1.untrusted_side_effect"
 
 
 def test_r1_aligned_private_needs_approval(engine):
     # A local write of private data under untrusted context (R2 only covers outbound).
     f = facts("write_note", "local", "self", context=join(USER, WEB, FILE))
-    d = engine.resolve(classify(engine, f), f, aligned=True)
+    d = engine.resolve(classify(engine, f), f, {"aligned": True})
     assert d.verdict is Verdict.NEEDS_APPROVAL
 
 
 def test_r1_aligned_external_needs_approval(engine):
     f = facts("fetch_url", "outbound", "external", context=join(USER, WEB))
-    d = engine.resolve(classify(engine, f), f, aligned=True)
+    d = engine.resolve(classify(engine, f), f, {"aligned": True})
     assert d.verdict is Verdict.NEEDS_APPROVAL
 
 
 def test_r1_misaligned_escalates(engine):
     f = facts("send_telegram", "outbound", "self", context=join(USER, WEB))
-    d = engine.resolve(classify(engine, f), f, aligned=False)
+    d = engine.resolve(classify(engine, f), f, {"aligned": False})
     assert d.verdict is Verdict.ESCALATE
 
 
@@ -232,7 +278,7 @@ rules:
 """
     )
     f = facts("write_note", "local", "self")
-    d = engine.resolve(engine.evaluate(f), f, aligned=False)
+    d = engine.resolve(engine.evaluate(f), f, {"aligned": False})
     assert d.verdict is Verdict.ESCALATE
 
 
@@ -245,6 +291,10 @@ rules:
         ("rules:\n  - id: a\n    then: ALLOW", "reason"),
         ("rules:\n  - id: a\n    when: {colour: red}\n    then: ALLOW\n    reason: r", "unknown condition"),
         ("rules:\n  - id: a\n    then: CLASSIFY\n    reason: r", "need outcomes"),
+        (
+            "rules:\n  - id: a\n    then: CLASSIFY\n    classifier: vibes\n    reason: r\n    outcomes: [{when: {aligned: true}, then: ALLOW, reason: r}]",
+            "classifier",
+        ),
         ("rules:\n  - id: a\n    sequence: [{tool: x}]\n    then: BLOCK\n    reason: r", "two steps"),
         (
             "rules:\n  - id: a\n    sequence: [{tool: x}, {output.integrity: untrusted}]\n    then: BLOCK\n    reason: r",
@@ -269,7 +319,7 @@ def test_default_rules_cover_every_tool_shape(engine):
             if isinstance(result, Classify):
                 assert result.reason
                 for aligned in (True, False):
-                    d = engine.resolve(result, facts(tool, effect, dest, context=ctx), aligned)
+                    d = engine.resolve(result, facts(tool, effect, dest, context=ctx), {"aligned": aligned, "leaking": aligned})
                     assert d.rule_id and d.reason
             else:
                 assert result.rule_id != "R0.no_match", (tool, ctx)

@@ -134,6 +134,9 @@ class TurnContext:
     def lookup(self, handle: str) -> Labeled[Any] | None:
         return self._values.get(handle)
 
+    def private_values(self) -> list[Labeled[Any]]:
+        return [v for v in self._values.values() if v.label.is_private]
+
     def lookup_all(self, handles: Iterable[str]) -> list[Labeled[Any]]:
         return [v for h in handles if (v := self._values.get(h)) is not None]
 

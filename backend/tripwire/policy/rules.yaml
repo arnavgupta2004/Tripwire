@@ -5,12 +5,14 @@
 #
 # Condition keys (a value may be a scalar or a list meaning "any of"):
 #   tool, side_effect (none|local|outbound), destination (self|external)
+#   egress (true|false)    the call's arguments (query, URL) leave the machine
 #   context.confidentiality / context.integrity   label of everything seen this turn
 #   data.confidentiality / data.integrity         context joined with the call's argument labels
 #   args.confidentiality / args.integrity         labels of values the arguments reference by handle
 # Sequence steps before the last also accept:
 #   output.confidentiality / output.integrity     label of that earlier call's result
-# Classifier outcomes also accept: aligned (true|false)
+# Classifier outcomes also accept: aligned (true|false) for `classifier: align`
+# (the default) and leaking (true|false) for `classifier: leak`.
 #
 # then: ALLOW | BLOCK | ESCALATE | NEEDS_APPROVAL | CLASSIFY
 #   ESCALATE sends the call to the judge, which returns BLOCK or NEEDS_APPROVAL.
@@ -18,14 +20,6 @@
 # Reasons may use {tool}, {destination} and {chain}.
 
 rules:
-  # R4: fast path. Reading with a trusted context needs no model call.
-  - id: R4.read_only_trusted
-    when:
-      side_effect: none
-      context.integrity: trusted
-    then: ALLOW
-    reason: "{tool} is read-only and the context is trusted."
-
   # R3: composition. Sequences over the calls that already ran this turn;
   # the last step is the call being checked.
   - id: R3.exfiltration_chain
@@ -45,15 +39,49 @@ rules:
     then: ESCALATE
     reason: "Memory poisoning risk ({chain}): web content was read this turn and is about to be written to long-term memory."
 
-  # R2: private data leaving the machine needs the user's approval, unless it
-  # goes to the user's own channel on the user's own (trusted) instruction.
+  # R5: query egress. Searches and URL fetches send their arguments off the
+  # machine. Once private data is in the turn, ask the classifier (LEAK mode)
+  # whether the query carries private specifics. Topic searches still go through.
+  - id: R5.query_egress
+    when:
+      egress: true
+      data.confidentiality: private
+    then: CLASSIFY
+    classifier: leak
+    reason: "Private data is in context and {tool} sends its query off the machine."
+    outcomes:
+      - when: {leaking: false}
+        then: ALLOW
+        reason: "{tool}'s query contains no private specifics from this turn."
+      - when: {leaking: true}
+        then: NEEDS_APPROVAL
+        reason: "{tool}'s query would reveal private details from this turn."
+
+  # R4: fast path. Reading with a trusted context needs no model call.
+  - id: R4.read_only_trusted
+    when:
+      side_effect: none
+      context.integrity: trusted
+    then: ALLOW
+    reason: "{tool} is read-only and the context is trusted."
+
+  # R2: private data leaving the machine. With untrusted content in context the
+  # judge explains why; on the user's own trusted instruction it is a plain
+  # approval, unless it goes to the user's own channel.
+  - id: R2.private_outbound_untrusted
+    when:
+      side_effect: outbound
+      data.confidentiality: private
+      context.integrity: untrusted
+    then: ESCALATE
+    reason: "{tool} would send private data to {destination} while untrusted content is in context."
+
   - id: R2.private_outbound
     when:
       side_effect: outbound
       data.confidentiality: private
     unless:
       destination: self
-      context.integrity: trusted
     then: NEEDS_APPROVAL
     reason: "{tool} would send private data to {destination}."
 

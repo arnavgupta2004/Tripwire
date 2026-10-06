@@ -26,6 +26,7 @@ CALL_KEYS = frozenset(
         "tool",
         "side_effect",
         "destination",
+        "egress",
         "context.confidentiality",
         "context.integrity",
         "data.confidentiality",
@@ -35,7 +36,8 @@ CALL_KEYS = frozenset(
     }
 )
 HISTORY_KEYS = CALL_KEYS | {"output.confidentiality", "output.integrity"}
-OUTCOME_KEYS = CALL_KEYS | {"aligned"}
+OUTCOME_KEYS = CALL_KEYS | {"aligned", "leaking"}
+CLASSIFIER_MODES = ("align", "leak")
 
 
 class PolicyError(ValueError):
@@ -58,11 +60,13 @@ def call_facts(
     destination: str | None,
     context: Label,
     args: Label,
+    egress: bool = False,
 ) -> dict[str, str]:
     return {
         "tool": tool,
         "side_effect": str(side_effect),
         "destination": str(destination) if destination else "none",
+        "egress": str(egress).lower(),
         **_label_facts("context", context),
         **_label_facts("args", args),
         **_label_facts("data", context.join(args)),
@@ -104,6 +108,7 @@ class Rule:
     unless: Condition | None = None
     sequence: tuple[Condition, ...] = ()
     outcomes: tuple[Outcome, ...] = ()
+    classifier: str = "align"  # CLASSIFY rules: "align" (intent) or "leak" (query egress)
 
 
 @dataclass(frozen=True)
@@ -183,6 +188,9 @@ def _parse_rule(raw: Mapping[str, Any]) -> Rule:
         raise PolicyError(f"{where}: CLASSIFY rules need outcomes")
     if outcomes and then != CLASSIFY:
         raise PolicyError(f"{where}: only CLASSIFY rules may have outcomes")
+    classifier = raw.get("classifier", "align")
+    if classifier not in CLASSIFIER_MODES:
+        raise PolicyError(f"{where}: 'classifier' must be one of {CLASSIFIER_MODES}")
 
     return Rule(
         id=rule_id,
@@ -192,6 +200,7 @@ def _parse_rule(raw: Mapping[str, Any]) -> Rule:
         unless=_parse_condition(raw["unless"], CALL_KEYS, f"{where} unless") if "unless" in raw else None,
         sequence=sequence,
         outcomes=tuple(outcomes),
+        classifier=classifier,
     )
 
 
@@ -249,9 +258,10 @@ class PolicyEngine:
             return Decision(Verdict(rule.then), rule.id, reason)
         return Decision(Verdict.BLOCK, "R0.no_match", "No policy rule matched this call; failing closed.")
 
-    def resolve(self, pending: Classify, facts: Facts, aligned: bool) -> Decision:
-        """Pick the outcome of a CLASSIFY rule given the classifier's answer."""
-        with_intent = {**facts, "aligned": str(aligned).lower()}
+    def resolve(self, pending: Classify, facts: Facts, signals: Mapping[str, bool]) -> Decision:
+        """Pick the outcome of a CLASSIFY rule given the classifier's answer,
+        e.g. signals={"aligned": True} or {"leaking": False}."""
+        with_intent = {**facts, **{k: str(v).lower() for k, v in signals.items()}}
         for outcome in pending.rule.outcomes:
             if matches(outcome.when, with_intent):
                 return Decision(outcome.then, pending.rule.id, _render(outcome.reason, facts))
