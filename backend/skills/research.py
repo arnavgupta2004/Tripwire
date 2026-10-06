@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import Any
 
-from tripwire.reader import QuarantinedReader
+from tripwire.reader import PassthroughReader, QuarantinedReader
 
 MAX_RESULTS = 5
 SEARCH_SCHEMA = {
@@ -25,7 +25,7 @@ SEARCH_SCHEMA = {
 
 
 class Research:
-    def __init__(self, tavily: Any, reader: QuarantinedReader) -> None:
+    def __init__(self, tavily: Any, reader: QuarantinedReader | PassthroughReader) -> None:
         self.tavily = tavily  # a TavilyClient (or anything with search/extract)
         self.reader = reader
 
@@ -36,6 +36,8 @@ class Research:
         hits = [r for r in raw.get("results", []) if r.get("url")]
         if not hits:
             return []
+        if not getattr(self.reader, "quarantined", True):
+            return [{"url": h["url"], "title": h.get("title", ""), "content": h.get("content", "")} for h in hits]
         text = "\n\n".join(f"[{i}] {h.get('title', '')}\n{h.get('content', '')}" for i, h in enumerate(hits))
         read = self.reader.read(text, SEARCH_SCHEMA, source=f"tavily_search:{query}")
         by_index = {r["index"]: r for r in read.data.get("results", [])}

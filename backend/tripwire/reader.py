@@ -168,8 +168,19 @@ def chunk_text(text: str, size: int = CHUNK_CHARS, max_chunks: int = MAX_CHUNKS)
     return chunks, bool(rest)
 
 
+class PassthroughReader:
+    """Shield OFF: hands raw page text straight to the planner, like a naive agent."""
+
+    quarantined = False
+    MAX_CHARS = 12_000
+
+    def read(self, text: str, schema: Mapping[str, Any] | None = None, source: str = "") -> ReaderResult:
+        return ReaderResult({"raw_text": text[: self.MAX_CHARS]}, False, "", 1, source=source)
+
+
 class QuarantinedReader:
     tier = "nano"
+    quarantined = True
 
     def __init__(self, router: ModelRouter, chunk_chars: int = CHUNK_CHARS, max_chunks: int = MAX_CHUNKS) -> None:
         self.router = router

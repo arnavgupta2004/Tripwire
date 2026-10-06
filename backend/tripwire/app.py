@@ -11,6 +11,7 @@ from tripwire.gateway import Gateway
 from tripwire.judge import NemotronJudge
 from tripwire.models import ModelRouter
 from tripwire.policy.engine import PolicyEngine
+from tripwire.reader import PassthroughReader
 
 
 @dataclass
@@ -26,6 +27,9 @@ class App:
 def build_app(settings: Settings, *, shield: bool = True, max_steps: int | None = None, **skill_overrides) -> App:
     bus = EventBus()
     router = ModelRouter(settings, bus)
+    if not shield:
+        # Shield OFF is the naive baseline: no gateway and no quarantined reader.
+        skill_overrides.setdefault("reader", PassthroughReader())
     skills = build_skills(settings, router, bus, **skill_overrides)
     gateway = Gateway(
         skills.registry, PolicyEngine.from_yaml(), NemotronClassifier(router), NemotronJudge(router), bus
