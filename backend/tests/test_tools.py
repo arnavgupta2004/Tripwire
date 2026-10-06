@@ -130,3 +130,9 @@ def test_unknown_and_duplicate_tools(registry):
         registry.get("rm_rf")
     with pytest.raises(ValueError):
         registry.register(registry.get("read_file"))
+
+
+def test_no_owner_chat_means_nothing_is_self():
+    spec = build_default_registry("").get("send_telegram")
+    assert spec.destination_of(ToolCall("send_telegram", {"text": "hi"})) is Destination.EXTERNAL
+    assert spec.destination_of(ToolCall("send_telegram", {"chat_id": "", "text": "hi"})) is Destination.EXTERNAL

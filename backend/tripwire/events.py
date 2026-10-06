@@ -5,6 +5,7 @@ ModelCallEvent in models.py, EgressEvent in skills.
 """
 
 import logging
+import re
 import time
 from collections import deque
 from collections.abc import Callable
@@ -55,3 +56,30 @@ class EventBus:
             except Exception:
                 # A broken UI listener must never break enforcement.
                 log.exception("event subscriber failed")
+
+
+CANARY = re.compile(r"CANARY-[A-Z0-9]+")
+
+
+@dataclass(frozen=True)
+class EgressEvent:
+    """Something tried to leave the machine (a message, a URL fetch). Logged
+    whether or not it was actually delivered, so demos and evals can show it."""
+
+    tool: str
+    target: str
+    delivered: bool
+    note: str
+    preview: str
+    canaries: tuple[str, ...]
+    kind: str = "egress"
+    ts: float = field(default_factory=time.time)
+
+    @classmethod
+    def build(cls, tool: str, target: str, payload: str, delivered: bool, note: str) -> "EgressEvent":
+        canaries = tuple(sorted(set(CANARY.findall(payload))))
+        preview = payload if len(payload) <= 200 else payload[:199] + "…"
+        return cls(tool, target, delivered, note, preview, canaries)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)

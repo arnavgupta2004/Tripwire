@@ -134,7 +134,9 @@ def _web_label_for_extract(call: ToolCall, result: Any) -> Label:
 
 
 def _file_label_for_search(call: ToolCall, result: Any) -> Label:
-    paths = [r for r in result if isinstance(r, str)] if isinstance(result, list) else []
+    items = result if isinstance(result, list) else []
+    paths = [r["path"] if isinstance(r, Mapping) else r for r in items if isinstance(r, (str, Mapping))]
+    paths = [p for p in paths if isinstance(p, str)]
     return file_label(*(paths or [f"search?q={call.args.get('query', '')}"]))
 
 
@@ -158,8 +160,9 @@ def build_default_registry(
         return [f for f in memory.values() if query in f.value.lower()]
 
     def telegram_destination(call: ToolCall) -> Destination:
-        chat_id = str(call.args.get("chat_id", owner_chat_id))
-        return Destination.SELF if chat_id == str(owner_chat_id) else Destination.EXTERNAL
+        owner = str(owner_chat_id or "")
+        chat_id = str(call.args.get("chat_id") or owner)
+        return Destination.SELF if owner and chat_id == owner else Destination.EXTERNAL
 
     stubs: dict[str, Handler] = {
         "tavily_search": lambda a, _: [],
