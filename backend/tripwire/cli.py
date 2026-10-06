@@ -43,26 +43,35 @@ def print_event(event: Any) -> None:
         sent = _c(GREEN, "delivered") if event.delivered else _c(AMBER, "NOT delivered")
         canaries = f"  {_c(RED, 'CANARIES: ' + ', '.join(event.canaries))}" if event.canaries else ""
         print(f"    ⇢ {event.tool} → {event.target}: {sent} ({event.note}){canaries}")
+    elif event.kind == "block_explanation":
+        print(f"    {_c(AMBER, 'why:')} {event.explanation}  {_c(DIM, '(evidence: ' + event.evidence + ')')}")
 
 
-def _ask_approval(pending: Any, mode: str) -> bool:
-    d = pending.decision
-    print(_c(AMBER, f"\n  Tripwire paused: {pending.tool} {_args(pending.args)}"))
-    print(f"  {d.explanation or d.reason}")
+MODE_ANSWER = {"yes": "allow", "no": "deny"}
+
+
+def _ask_approval(info: Any, mode: str) -> str:
+    print(_c(AMBER, f"\n  Tripwire paused: {info.tool} {_args(info.args)}"))
+    print(f"  {info.explanation or info.reason}")
+    if info.evidence:
+        print(_c(DIM, f"  source: {info.evidence}"))
     if mode != "ask":
-        print(f"  (auto-{'approved' if mode == 'yes' else 'denied'} by --approve {mode})")
-        return mode == "yes"
+        print(f"  (auto-{mode} by --approve {mode})")
+        return MODE_ANSWER[mode]
     try:
-        return input("  Allow once? [y/N] ").strip().lower() in {"y", "yes"}
+        choice = input("  [a]llow once / [d]eny / [x] always deny this pattern? ").strip().lower()
     except EOFError:
-        return False
+        return "deny"
+    return {"a": "allow", "allow": "allow", "x": "always_deny"}.get(choice, "deny")
 
 
-def run_turn(app: Any, message: str, approve: str) -> None:
-    result = app.planner.send(message)
-    while result.status == "paused":
-        result = app.planner.resume(_ask_approval(result.pending, approve))
-    print(f"\n{_c(BOLD, 'tripwire>')} {result.reply}\n")
+def run_turn(session: Any, message: str, approve: str) -> None:
+    scheduled = session.maybe_schedule_brief(message)
+    if scheduled is not None:
+        print(f"\n{_c(BOLD, 'tripwire>')} {scheduled}\n")
+        return
+    outcome = session.chat(message, source="cli", approver=lambda info: _ask_approval(info, approve))
+    print(f"\n{_c(BOLD, 'tripwire>')} {outcome.reply}\n")
 
 
 def chat(argv: list[str]) -> int:
@@ -90,10 +99,10 @@ def chat(argv: list[str]) -> int:
 
         settings = replace(settings, data_dir=Path(tempfile.mkdtemp(prefix="tripwire-")))
 
-    from tripwire.app import build_app
+    from tripwire.app import build_session
 
-    app = build_app(settings, shield=args.shield == "on", max_steps=args.max_steps)
-    app.bus.subscribe(print_event)
+    session = build_session(settings, shield=args.shield == "on", max_steps=args.max_steps)
+    session.bus.subscribe(print_event)
     shield = _c(GREEN, "ON") if args.shield == "on" else _c(RED, "OFF (demo, ungated)")
     print(f"Tripwire chat · shield {shield} · judge tier {settings.effective_judge_tier} · "
           f"files {settings.files_dir} · demo mode {'on' if settings.demo_mode else 'off'}")
@@ -101,13 +110,13 @@ def chat(argv: list[str]) -> int:
     if args.message:
         for message in args.message:
             print(f"\n{_c(BOLD, 'you>')} {message}")
-            run_turn(app, message, args.approve)
-        print(_c(DIM, app.router.usage_summary()["headline"]))
+            run_turn(session, message, args.approve)
+        print(_c(DIM, session.router.usage_summary()["headline"]))
         return 0
 
-    print("Commands: /usage  /memory  /new  /quit\n")
+    print("Commands: /usage  /memory  /brief_now  /new  /quit\n")
     while True:
-        badge = app.planner.context_label.badge
+        badge = session.planner.context_label.badge
         prompt = f"{_c(AMBER, '[' + badge + '] ')}{_c(BOLD, 'you> ')}" if badge else _c(BOLD, "you> ")
         try:
             message = input(prompt).strip()
@@ -119,19 +128,26 @@ def chat(argv: list[str]) -> int:
         if message in {"/quit", "/exit"}:
             break
         if message == "/usage":
-            print(json.dumps(app.router.usage_summary(), indent=2))
+            print(json.dumps(session.router.usage_summary(), indent=2))
             continue
         if message == "/memory":
-            for fact in app.skills.memory.all():
+            for fact in session.skills.memory.all():
                 lab = fact.label
-                print(f"  - {fact.value}  [{lab.confidentiality}/{lab.integrity}; {', '.join(sorted(lab.sources))}]")
+                mark = "" if lab.is_trusted else "  ⚠ untrusted (info only)"
+                print(f"  - {fact.value}  [{lab.confidentiality}/{lab.integrity}; {', '.join(sorted(lab.sources))}]{mark}")
+            for task in session.skills.memory.tasks():
+                print(f"  · daily brief at {task.schedule}: {task.topic}")
+            continue
+        if message == "/brief_now":
+            run_turn_outcome = session.run_brief()
+            print(f"\n{_c(BOLD, 'tripwire>')} {run_turn_outcome.reply}\n")
             continue
         if message == "/new":
-            app.planner.reset()
+            session.new_thread()
             print("  (new conversation)")
             continue
-        run_turn(app, message, args.approve)
-    print(_c(DIM, app.router.usage_summary()["headline"]))
+        run_turn(session, message, args.approve)
+    print(_c(DIM, session.router.usage_summary()["headline"]))
     return 0
 
 

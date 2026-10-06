@@ -1,38 +1,32 @@
-"""Assemble a running Tripwire: models, gateway, skills, planner."""
-
-from dataclasses import dataclass
+"""Assemble a running Tripwire: models, gateway, skills, planner, session."""
 
 from agent.planner import Planner
-from skills.registry import Skills, build_skills
+from skills.registry import build_skills
 from tripwire.classifier import NemotronClassifier
 from tripwire.config import Settings
 from tripwire.events import EventBus
+from tripwire.explainer import AsyncExplainer
 from tripwire.gateway import Gateway
 from tripwire.judge import NemotronJudge
 from tripwire.models import ModelRouter
 from tripwire.policy.engine import PolicyEngine
+from tripwire.policy.user_rules import UserRuleStore
 from tripwire.reader import PassthroughReader
+from tripwire.session import Session
 
 
-@dataclass
-class App:
-    settings: Settings
-    bus: EventBus
-    router: ModelRouter
-    gateway: Gateway
-    skills: Skills
-    planner: Planner
-
-
-def build_app(settings: Settings, *, shield: bool = True, max_steps: int | None = None, **skill_overrides) -> App:
+def build_session(settings: Settings, *, shield: bool = True, max_steps: int | None = None,
+                  explain_blocks: bool = True, **skill_overrides) -> Session:
     bus = EventBus()
     router = ModelRouter(settings, bus)
     if not shield:
         # Shield OFF is the naive baseline: no gateway and no quarantined reader.
         skill_overrides.setdefault("reader", PassthroughReader())
     skills = build_skills(settings, router, bus, **skill_overrides)
-    gateway = Gateway(
-        skills.registry, PolicyEngine.from_yaml(), NemotronClassifier(router), NemotronJudge(router), bus
-    )
+    rules_store = UserRuleStore()
+    engine = PolicyEngine.load(rules_store.load())
+    judge = NemotronJudge(router)
+    explainer = AsyncExplainer(judge, bus) if explain_blocks else None
+    gateway = Gateway(skills.registry, engine, NemotronClassifier(router), judge, bus, explainer)
     planner = Planner(router, gateway, settings, shield=shield, max_steps=max_steps)
-    return App(settings, bus, router, gateway, skills, planner)
+    return Session(settings, bus, router, gateway, skills, planner, rules_store=rules_store)
