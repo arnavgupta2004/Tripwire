@@ -39,3 +39,6 @@ data/
 # Local planning docs
 TRIPWIRE_BUILD_SPEC.md
 .hypothesis/
+
+# User-written deny rules (runtime state)
+config/user_rules.yaml

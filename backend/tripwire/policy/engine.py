@@ -236,6 +236,16 @@ class PolicyEngine:
     def from_yaml(cls, path: Path | str = DEFAULT_RULES) -> "PolicyEngine":
         return cls.from_yaml_text(Path(path).read_text())
 
+    @classmethod
+    def load(cls, user_rules: Sequence[Mapping[str, Any]] = (), base: Path | str = DEFAULT_RULES) -> "PolicyEngine":
+        """Built-in rules, with user deny rules (if any) evaluated first."""
+        doc = yaml.safe_load(Path(base).read_text()) or {}
+        base_rules = doc.get("rules")
+        if not isinstance(base_rules, list) or not base_rules:
+            raise PolicyError("policy must define a non-empty 'rules' list")
+        rules = [_parse_rule(r) for r in user_rules] + [_parse_rule(r) for r in base_rules]
+        return cls(rules)
+
     def evaluate(self, facts: Facts, history: Sequence[Facts] = ()) -> Decision | Classify:
         """First matching rule wins. `history` holds facts of calls that ran this turn."""
         for rule in self.rules:
