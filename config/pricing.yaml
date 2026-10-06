@@ -1,0 +1,5 @@
+# Token Factory prices used for cost estimates, in USD per 1M tokens.
+# Keyed by model id. Fill from `uv run python scripts/check_models.py`, which
+# prints the pricing reported by GET /v1/models?verbose=true.
+# A model missing here is logged with cost_usd = null ("unpriced").
+models: {}

@@ -1,4 +1,8 @@
-"""In-process event bus. Phase 4 streams these events to the UI over WebSocket."""
+"""In-process event bus. Phase 4 streams these events to the UI over WebSocket.
+
+Events are dataclasses with a `kind` and a `to_dict()`: GatewayEvent here,
+ModelCallEvent in models.py, EgressEvent in skills.
+"""
 
 import logging
 import time
@@ -29,19 +33,19 @@ class GatewayEvent:
         return asdict(self)
 
 
-Subscriber = Callable[[GatewayEvent], None]
+Subscriber = Callable[[Any], None]
 
 
 class EventBus:
     def __init__(self, keep: int = 500) -> None:
         self._subscribers: list[Subscriber] = []
-        self.recent: deque[GatewayEvent] = deque(maxlen=keep)
+        self.recent: deque[Any] = deque(maxlen=keep)
 
     def subscribe(self, fn: Subscriber) -> Callable[[], None]:
         self._subscribers.append(fn)
         return lambda: self._subscribers.remove(fn)
 
-    def publish(self, event: GatewayEvent) -> None:
+    def publish(self, event: Any) -> None:
         self.recent.append(event)
         for fn in list(self._subscribers):
             try:

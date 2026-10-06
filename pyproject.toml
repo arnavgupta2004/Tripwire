@@ -7,11 +7,13 @@ license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
     "fastapi>=0.142.2",
+    "httpx>=0.28.1",
     "openai>=3.25.0",
     "pydantic>=2.13.5",
     "python-dotenv>=1.2.4",
     "python-telegram-bot>=22.8",
     "pyyaml>=6.0.3",
+    "rank-bm25>=0.2.2",
     "tavily-python>=0.8.5",
     "uvicorn[standard]>=0.54.0",
 ]
