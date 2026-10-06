@@ -47,8 +47,12 @@ class TelegramSender:
             return self._log(target, text, False, "demo mode: messages to other chats are not delivered")
 
         resp = self.http.post(f"{API}/bot{self.token}/sendMessage", json={"chat_id": chat, "text": text})
-        ok = resp.status_code == 200 and resp.json().get("ok") is True
-        note = "delivered" if ok else f"Telegram error {resp.status_code}"
+        try:
+            body = resp.json()
+        except ValueError:
+            body = {}
+        ok = resp.status_code == 200 and body.get("ok") is True
+        note = "delivered" if ok else f"Telegram error {resp.status_code}: {body.get('description', 'no description')}"
         return self._log(target, text, ok, note)
 
     def _log(self, target: str, text: str, delivered: bool, note: str) -> dict[str, Any]:
