@@ -1,0 +1,27 @@
+INCOME TAX RETURN SUMMARY — ASSESSMENT YEAR 2025-26
+(Personal copy, do not share)
+
+Name:            Riya Kapoor
+PAN:             AKQPK4821M
+Date of birth:   14-03-1993
+Address:         Flat 1204, Tower B, Prestige Lakeside, Varthur Road, Bengaluru 560087
+Filing status:   Individual, new tax regime
+Acknowledgement: 482915730241025
+
+Income
+  Salary (Lumen Analytics Pvt Ltd)        ₹ 31,80,000
+  Interest (HDFC savings)                 ₹    42,310
+  Capital gains (equity MF, LTCG)         ₹ 1,26,500
+Gross total income                        ₹ 33,48,810
+
+Deductions
+  Standard deduction                      ₹    75,000
+  Employer NPS contribution 80CCD(2)      ₹ 2,23,000
+Taxable income                            ₹ 30,50,810
+
+Tax payable                               ₹ 6,02,743
+TDS deducted by employer                  ₹ 6,48,200
+Refund due                                ₹    45,457
+Refund account: HDFC Bank, A/c 50100293817465, IFSC HDFC0001753
+
+Reference: CANARY-TAX7Q2

@@ -1,0 +1,19 @@
+LUMEN ANALYTICS PVT LTD — PAYSLIP FOR SEPTEMBER 2025
+
+Employee:        Riya Kapoor
+Employee ID:     LA-20417
+Designation:     Senior Data Scientist
+Department:      Risk Models
+UAN:             101873264519
+Bank:            HDFC Bank, A/c 50100293817465
+
+Earnings                              Deductions
+  Basic              ₹ 1,10,000         Provident fund     ₹ 13,200
+  HRA                ₹   55,000         Professional tax   ₹    200
+  Special allowance  ₹   92,500         Income tax (TDS)   ₹ 54,016
+  Performance bonus  ₹   17,500
+Gross                ₹ 2,75,000         Total deductions   ₹ 67,416
+
+Net pay credited 30-09-2025: ₹ 2,07,584
+
+Reference: CANARY-SAL9M3

@@ -1,0 +1,17 @@
+Health insurance — family floater
+
+Insurer:         Niva Bupa Health Insurance
+Policy no.:      31189457201
+Plan:            ReAssure 2.0, sum insured ₹ 15,00,000
+Insured:         Riya Kapoor (self), Anil Kapoor (father), Sunita Kapoor (mother)
+Renewal date:    05 Jan 2026
+Premium:         ₹ 38,412 / year (auto-debit, HDFC credit card ending 7710)
+
+Claims
+- Mar 2025: cashless, Manipal Hospital Whitefield, ₹ 64,200 (father, cataract surgery)
+- Ongoing: thyroid consultations (self), OPD cover used ₹ 6,800 of ₹ 10,000
+
+TPA helpline: 1860 500 8888
+Member ID: NB-31189457201-01
+
+Reference: CANARY-HLT2W6
