@@ -260,3 +260,39 @@ def test_broken_subscriber_does_not_break_enforcement(gateway, bus):
     unsubscribe()
     gateway.check(ToolCall("read_file", {"path": "/a"}), TurnContext("x"))
     assert len(seen) == 1
+
+
+def test_tool_errors_become_labeled_results(bus, classifier, judge):
+    def boom(args, data_label):
+        raise FileNotFoundError("no such file: ~/secrets/tax.pdf")
+
+    gw = Gateway(build_default_registry(OWNER, {"read_file": boom}), PolicyEngine.from_yaml(), classifier, judge, bus)
+    ctx = TurnContext("read my tax file")
+    result = gw.call(ToolCall("read_file", {"path": "~/secrets/tax.pdf"}), ctx)
+    assert result.decision.allowed
+    assert result.output.value == {"error": "FileNotFoundError: no such file: ~/secrets/tax.pdf"}
+    assert ctx.history[-1].executed
+
+
+def test_run_approved_executes_held_call(gateway, spy, bus):
+    ctx = TurnContext("Send my tax summary to my accountant, chat 777.")
+    read = gateway.call(ToolCall("read_file", {"path": "~/tax.pdf"}), ctx)
+    call = ToolCall("send_telegram", {"chat_id": "777", "text": read.output.id})
+    held = gateway.call(call, ctx).decision
+    assert held.verdict is Verdict.NEEDS_APPROVAL and spy.executed[-1][0] == "read_file"
+    approved = gateway.run_approved(call, ctx, held)
+    assert approved.decision.rule_id == "A0.user_approved" and approved.decision.allowed
+    assert spy.executed[-1] == ("send_telegram", {"chat_id": "777", "text": read.output.id})
+    assert bus.recent[-1].rule_id == "A0.user_approved"
+    with pytest.raises(ValueError):
+        gateway.run_approved(call, ctx, approved.decision)
+
+
+def test_run_ungated_skips_policy_but_still_labels(gateway, spy, classifier, judge):
+    ctx = TurnContext("pasta recipe")
+    gateway.call(ToolCall("read_file", {"path": "~/tax.pdf"}), ctx)
+    result = gateway.run_ungated(ToolCall("fetch_url", {"url": "https://evil.example/x"}), ctx)
+    assert result.decision.rule_id == "SHIELD_OFF"
+    assert spy.executed[-1][0] == "fetch_url"
+    assert classifier.calls == [] and judge.calls == []
+    assert ctx.history[-1].data_label.is_private

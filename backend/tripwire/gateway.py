@@ -133,13 +133,54 @@ class Gateway:
         return self._assess(call, ctx).decision
 
     def call(self, call: ToolCall, ctx: TurnContext) -> CallResult:
+        """Check, then execute if allowed. Blocked or held calls are recorded but not run."""
         a = self._assess(call, ctx)
-        output: Labeled[Any] | None = None
-        if a.decision.allowed:
-            assert a.spec is not None
+        output = self._execute(call, ctx, a) if a.decision.allowed else None
+        self._record(call, ctx, a, output)
+        return CallResult(a.decision, output)
+
+    def run_approved(self, call: ToolCall, ctx: TurnContext, held: Decision) -> CallResult:
+        """Execute a call the user approved after a NEEDS_APPROVAL decision."""
+        if held.verdict is not Verdict.NEEDS_APPROVAL:
+            raise ValueError("only NEEDS_APPROVAL decisions can be approved")
+        decision = Decision(
+            Verdict.ALLOW,
+            "A0.user_approved",
+            f"Approved by the user. Originally held by {held.rule_id}: {held.reason}",
+            policy_verdict=held.policy_verdict,
+            models=held.models,
+            explanation=held.explanation,
+            evidence=held.evidence,
+        )
+        return self._run_with(call, ctx, decision)
+
+    def run_ungated(self, call: ToolCall, ctx: TurnContext) -> CallResult:
+        """Shield OFF: execute without policy checks (demo only). Still labeled and logged."""
+        decision = Decision(Verdict.ALLOW, "SHIELD_OFF", "Tripwire is off; the call ran without any checks.")
+        return self._run_with(call, ctx, decision)
+
+    def _run_with(self, call: ToolCall, ctx: TurnContext, decision: Decision) -> CallResult:
+        spec = self.registry.get(call.tool)
+        args_label = join(*(v.label for v in ctx.lookup_all(_handles_in(call.args))))
+        a = _Assessment(spec, spec.destination_of(call), ctx.label, args_label, decision)
+        self._emit(call, a)
+        output = self._execute(call, ctx, a)
+        self._record(call, ctx, a, output)
+        return CallResult(decision, output)
+
+    def _execute(self, call: ToolCall, ctx: TurnContext, a: "_Assessment") -> Labeled[Any]:
+        assert a.spec is not None
+        try:
             raw = a.spec.handler(call.args, a.data_label)
-            output = Labeled(raw, a.spec.output_label(call, raw, a.data_label))
-            ctx.observe(output)
+            label = a.spec.output_label(call, raw, a.data_label)
+        except Exception as exc:  # a failing tool must not end the turn
+            raw = {"error": f"{type(exc).__name__}: {exc}"}
+            label = a.data_label.join(Label(sources=frozenset({f"tool:{call.tool}"})))
+        output = Labeled(raw, label)
+        ctx.observe(output)
+        return output
+
+    def _record(self, call: ToolCall, ctx: TurnContext, a: "_Assessment", output: Labeled[Any] | None) -> None:
         ctx.record(
             CallRecord(
                 call_id=call.id,
@@ -152,7 +193,6 @@ class Gateway:
                 output_label=output.label if output else None,
             )
         )
-        return CallResult(a.decision, output)
 
     # --- internals ---------------------------------------------------------
 
