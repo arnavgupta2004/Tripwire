@@ -30,7 +30,12 @@ uv run python scripts/check_telegram.py
 uv run tripwire chat                    # interactive; prints every gateway decision
 uv run tripwire chat --shield off       # naive baseline (DEMO_MODE=true only)
 uv run python scripts/serve_demo.py     # local page with a hidden injection
+uv run uvicorn api.main:build --factory --app-dir backend   # the always-on API
 ```
+
+In chat: `/memory`, `/brief_now`, `/new`, `/usage`. Say "every morning brief me
+on X" to set a daily brief. The CLI, the API and the Telegram bot all drive one
+assistant; an approval that pauses a turn can be answered from any of them.
 
 Tests: `uv run pytest` (unit, runs in CI) and `uv run pytest -m live -s` (real
 Nemotron calls on Token Factory; needs `.env`).
