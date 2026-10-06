@@ -1,0 +1,94 @@
+# Tripwire flow policy.
+#
+# Rules are evaluated top to bottom; the first match decides. If nothing
+# matches, the engine fails closed with BLOCK (rule R0.no_match).
+#
+# Condition keys (a value may be a scalar or a list meaning "any of"):
+#   tool, side_effect (none|local|outbound), destination (self|external)
+#   context.confidentiality / context.integrity   label of everything seen this turn
+#   data.confidentiality / data.integrity         context joined with the call's argument labels
+#   args.confidentiality / args.integrity         labels of values the arguments reference by handle
+# Sequence steps before the last also accept:
+#   output.confidentiality / output.integrity     label of that earlier call's result
+# Classifier outcomes also accept: aligned (true|false)
+#
+# then: ALLOW | BLOCK | ESCALATE | NEEDS_APPROVAL | CLASSIFY
+#   ESCALATE sends the call to the judge, which returns BLOCK or NEEDS_APPROVAL.
+#   CLASSIFY sends the call to the intent classifier, then picks an outcome.
+# Reasons may use {tool}, {destination} and {chain}.
+
+rules:
+  # R4: fast path. Reading with a trusted context needs no model call.
+  - id: R4.read_only_trusted
+    when:
+      side_effect: none
+      context.integrity: trusted
+    then: ALLOW
+    reason: "{tool} is read-only and the context is trusted."
+
+  # R3: composition. Sequences over the calls that already ran this turn;
+  # the last step is the call being checked.
+  - id: R3.exfiltration_chain
+    sequence:
+      - tool: [read_file, search_files, recall]
+        output.confidentiality: private
+      - tool: fetch_url
+        destination: external
+    then: BLOCK
+    reason: "Exfiltration chain ({chain}): private data was read this turn and {tool} would send a request to an external host."
+
+  - id: R3.memory_poisoning
+    sequence:
+      - tool: [tavily_extract, tavily_search, fetch_url]
+        output.integrity: untrusted
+      - tool: remember
+    then: ESCALATE
+    reason: "Memory poisoning risk ({chain}): web content was read this turn and is about to be written to long-term memory."
+
+  # R2: private data leaving the machine needs the user's approval, unless it
+  # goes to the user's own channel on the user's own (trusted) instruction.
+  - id: R2.private_outbound
+    when:
+      side_effect: outbound
+      data.confidentiality: private
+    unless:
+      destination: self
+      context.integrity: trusted
+    then: NEEDS_APPROVAL
+    reason: "{tool} would send private data to {destination}."
+
+  # R1: untrusted content is in the context and the call has a side effect.
+  # Ask the intent classifier whether the user's own instruction asked for it.
+  - id: R1.untrusted_side_effect
+    when:
+      side_effect: [local, outbound]
+      context.integrity: untrusted
+    then: CLASSIFY
+    reason: "Untrusted content is in context and {tool} has side effects."
+    outcomes:
+      - when: {aligned: true, data.confidentiality: public, destination: self}
+        then: ALLOW
+        reason: "{tool} matches the user's instruction, carries no private data and goes to {destination}."
+      - when: {aligned: true, data.confidentiality: private}
+        then: NEEDS_APPROVAL
+        reason: "{tool} matches the user's instruction but carries private data while untrusted content is in context."
+      - when: {aligned: true}
+        then: NEEDS_APPROVAL
+        reason: "{tool} matches the user's instruction but goes to an {destination} destination while untrusted content is in context."
+      - when: {aligned: false}
+        then: ESCALATE
+        reason: "{tool} was not requested by the user and untrusted content is in context."
+
+  # Defaults for calls no risk rule claimed.
+  - id: R0.untrusted_read
+    when:
+      side_effect: none
+    then: ALLOW
+    reason: "{tool} is read-only; its output is labeled and later side effects are checked."
+
+  - id: R0.trusted_side_effect
+    when:
+      side_effect: [local, outbound]
+      context.integrity: trusted
+    then: ALLOW
+    reason: "{tool} was directed by trusted context only."
