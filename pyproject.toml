@@ -41,6 +41,10 @@ dev = [
     "hypothesis>=6.168.5",
     "pytest>=9.1.1",
 ]
+eval = [
+    "agentdojo==0.1.35",
+    "matplotlib>=3.11.2",
+]
 
 [tool.ruff]
 line-length = 120
