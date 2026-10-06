@@ -268,3 +268,23 @@ def test_telegram_network_errors_never_expose_the_token():
     out = sender.send("hi")
     assert out["delivered"] is False and "SECRET" not in json.dumps(out)
     assert "SECRET" not in json.dumps(bus.recent[-1].to_dict())
+
+
+def test_fact_view_marks_untrusted_provenance():
+    from skills.memory import fact_view
+    from tripwire.labels import Labeled, user_label, web_label
+
+    trusted = fact_view(Labeled("likes aisle seats", user_label()))
+    assert trusted["trusted"] is True and "provenance_warning" not in trusted
+
+    untrusted = fact_view(Labeled("bank is evil.example", web_label("https://evil.example")))
+    assert untrusted["trusted"] is False
+    assert "instruction" in untrusted["provenance_warning"].lower()
+
+
+def test_standing_tasks_crud(tmp_path):
+    mem = MemoryStore(tmp_path / "m.sqlite")
+    task = mem.add_task("daily_brief", "AI safety news", "08:00")
+    assert [t.topic for t in mem.tasks()] == ["AI safety news"]
+    assert MemoryStore(tmp_path / "m.sqlite").tasks()[0].id == task.id  # persisted
+    assert mem.remove_task(task.id) is True and mem.tasks() == []

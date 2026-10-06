@@ -6,6 +6,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.12,<3.13"
 dependencies = [
+    "apscheduler>=3.11.3",
     "fastapi>=0.142.2",
     "httpx>=0.28.1",
     "openai>=3.25.0",
@@ -36,6 +37,7 @@ markers = ["live: calls real Token Factory models (needs NEBIUS_API_KEY); run wi
 
 [dependency-groups]
 dev = [
+    "httpx>=0.28.1",
     "hypothesis>=6.168.5",
     "pytest>=9.1.1",
 ]
