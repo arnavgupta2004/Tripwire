@@ -8,14 +8,20 @@ that label into the turn context.
 
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any, Protocol
 
 from tripwire.decision import Decision, Verdict
 from tripwire.events import EventBus, GatewayEvent
 from tripwire.labels import BOTTOM, CallRecord, Label, Labeled, TurnContext, join
-from tripwire.policy.engine import Classify, Facts, PolicyEngine, call_facts, record_facts
+from tripwire.policy.engine import (
+    Classify,
+    Facts,
+    PolicyEngine,
+    call_facts,
+    record_facts,
+)
 from tripwire.tools import ToolCall, ToolRegistry, ToolSpec, UnknownToolError
 
 HANDLE = re.compile(r"\bh_[0-9a-f]{12}\b")
@@ -26,6 +32,7 @@ ARGS_SUMMARY_LIMIT = 200
 class Intent:
     aligned: bool
     rationale: str
+    confidence: float | None = None
 
 
 @dataclass(frozen=True)
@@ -38,6 +45,19 @@ class Leak:
 class Ruling:
     verdict: Verdict
     explanation: str
+    evidence: str = ""
+
+
+@dataclass(frozen=True)
+class JudgeCase:
+    """Everything the judge sees about an escalated call."""
+
+    call: ToolCall
+    instruction: str
+    facts: Facts
+    escalation: Decision
+    history: Sequence[CallRecord]
+    data_label: Label
 
 
 class IntentClassifier(Protocol):
@@ -57,7 +77,7 @@ class Judge(Protocol):
 
     tier: str
 
-    def judge(self, call: ToolCall, instruction: str, facts: Facts, escalation: Decision) -> Ruling: ...
+    def judge(self, case: JudgeCase) -> Ruling: ...
 
 
 @dataclass(frozen=True)
@@ -150,12 +170,14 @@ class Gateway:
         facts = call_facts(call.tool, spec.side_effect, destination, ctx.label, args_label, spec.egress)
         history = [record_facts(r) for r in ctx.executed]
 
-        decision = self._decide(call, ctx, facts, history)
+        decision = self._decide(call, ctx, facts, history, ctx.label.join(args_label))
         a = _Assessment(spec, destination, ctx.label, args_label, decision)
         self._emit(call, a)
         return a
 
-    def _decide(self, call: ToolCall, ctx: TurnContext, facts: Facts, history: list[Facts]) -> Decision:
+    def _decide(
+        self, call: ToolCall, ctx: TurnContext, facts: Facts, history: list[Facts], data_label: Label
+    ) -> Decision:
         instruction = ctx.instruction.value
         models: list[str] = []
 
@@ -180,7 +202,7 @@ class Gateway:
         if result.verdict is not Verdict.ESCALATE:
             return result
 
-        ruling = self.judge.judge(call, instruction, facts, result)
+        ruling = self.judge.judge(JudgeCase(call, instruction, facts, result, list(ctx.history), data_label))
         models.append(self.judge.tier)
         # The judge can only block or ask the user; it never silently allows.
         verdict = ruling.verdict if ruling.verdict in (Verdict.BLOCK, Verdict.NEEDS_APPROVAL) else Verdict.NEEDS_APPROVAL
@@ -190,6 +212,8 @@ class Gateway:
             f"{result.reason} Judge: {ruling.explanation}",
             policy_verdict=Verdict.ESCALATE,
             models=tuple(models),
+            explanation=ruling.explanation,
+            evidence=ruling.evidence or None,
         )
 
     def _emit(self, call: ToolCall, a: _Assessment) -> None:
@@ -209,5 +233,7 @@ class Gateway:
                 reason=a.decision.reason,
                 models=a.decision.models,
                 destination=a.destination,
+                explanation=a.decision.explanation,
+                evidence=a.decision.evidence,
             )
         )

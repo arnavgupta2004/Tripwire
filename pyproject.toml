@@ -30,3 +30,10 @@ dev = [
     "hypothesis>=6.168.5",
     "pytest>=9.1.1",
 ]
+
+[tool.ruff]
+line-length = 120
+src = ["backend", "backend/tests"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["tripwire", "agent", "skills", "api", "fakes"]

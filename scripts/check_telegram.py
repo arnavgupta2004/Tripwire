@@ -6,10 +6,9 @@ Stop with Ctrl+C.
 Usage: uv run python scripts/check_telegram.py
 """
 
+from _common import load_env, require
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes, MessageHandler, filters
-
-from _common import load_env, require
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:

@@ -1,8 +1,8 @@
 import httpx
 import pytest
-from fakes.openai_client import FakeClient, completion, json_reply
 from openai import APITimeoutError, BadRequestError, RateLimitError
 
+from fakes.openai_client import FakeClient, completion, json_reply
 from tripwire.config import Settings
 from tripwire.events import EventBus
 from tripwire.models import (

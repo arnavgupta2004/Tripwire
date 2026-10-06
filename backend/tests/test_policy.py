@@ -2,7 +2,13 @@ import pytest
 
 from tripwire.decision import Decision, Verdict
 from tripwire.labels import BOTTOM, CallRecord, file_label, join, user_label, web_label
-from tripwire.policy.engine import Classify, PolicyEngine, PolicyError, call_facts, record_facts
+from tripwire.policy.engine import (
+    Classify,
+    PolicyEngine,
+    PolicyError,
+    call_facts,
+    record_facts,
+)
 
 USER = user_label()
 WEB = web_label("https://a.example")

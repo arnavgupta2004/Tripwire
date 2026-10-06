@@ -13,9 +13,8 @@ import re
 import sys
 import time
 
-from openai import APIError, AuthenticationError, OpenAI
-
 from _common import load_env, require
+from openai import APIError, AuthenticationError, OpenAI
 
 DEFAULT_BASE_URL = "https://api.tokenfactory.nebius.com/v1/"
 TIERS = ("nano", "super", "ultra")

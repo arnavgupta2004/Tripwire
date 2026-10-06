@@ -5,9 +5,8 @@ Usage: uv run python scripts/check_tavily.py
 
 import sys
 
-from tavily import TavilyClient
-
 from _common import load_env, require
+from tavily import TavilyClient
 
 QUERY = "NVIDIA Nemotron 3 open models"
 FALLBACK_URL = "https://en.wikipedia.org/wiki/Prompt_injection"

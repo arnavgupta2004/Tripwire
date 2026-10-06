@@ -21,6 +21,9 @@ class Decision:
     policy_verdict: Verdict | None = None
     # Model tiers consulted for this decision (stubs report the tier they stand in for).
     models: tuple[str, ...] = ()
+    # Set when the judge ruled: one plain-English sentence, and the source behind it.
+    explanation: str | None = None
+    evidence: str | None = None
 
     def __post_init__(self) -> None:
         if not self.rule_id.strip():

@@ -5,12 +5,12 @@ behind the same IntentClassifier / Judge interfaces.
 """
 
 import json
-import re
 from collections.abc import Mapping
 from urllib.parse import urlparse
 
-from tripwire.decision import Decision, Verdict
-from tripwire.gateway import Intent, Leak, Ruling
+from tripwire.decision import Verdict
+from tripwire.gateway import Intent, JudgeCase, Leak, Ruling
+from tripwire.leaks import private_specifics
 from tripwire.policy.engine import Facts
 from tripwire.tools import ToolCall
 
@@ -21,15 +21,6 @@ DEFAULT_INTENT_KEYWORDS: dict[str, tuple[str, ...]] = {
     "remember": ("remember", "memorize", "keep in mind"),
     "fetch_url": ("fetch", "open", "visit", "download", "check the link"),
 }
-
-
-# Tokens specific enough to identify someone: anything with a digit (IDs,
-# amounts, account numbers), and canary markers.
-_SPECIFIC = re.compile(r"[A-Za-z0-9][A-Za-z0-9\-_/.]*\d[A-Za-z0-9\-_/.]*|CANARY-[A-Za-z0-9]+")
-
-
-def private_specifics(texts: list[str]) -> set[str]:
-    return {t.lower() for text in texts for t in _SPECIFIC.findall(text) if len(t) >= 4}
 
 
 def _target(call: ToolCall) -> str:
@@ -85,7 +76,8 @@ class StubJudge:
         self.fixed = fixed
         self.calls: list[ToolCall] = []
 
-    def judge(self, call: ToolCall, instruction: str, facts: Facts, escalation: Decision) -> Ruling:
+    def judge(self, case: JudgeCase) -> Ruling:
+        call, facts = case.call, case.facts
         self.calls.append(call)
         if self.fixed is not None:
             return Ruling(self.fixed, f"fixture ruling {self.fixed}.")

@@ -26,6 +26,8 @@ class GatewayEvent:
     reason: str
     models: tuple[str, ...]
     destination: str | None = None
+    explanation: str | None = None
+    evidence: str | None = None
     kind: str = "decision"
     ts: float = field(default_factory=time.time)
 
