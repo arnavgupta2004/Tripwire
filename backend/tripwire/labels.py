@@ -52,6 +52,16 @@ class Label:
         return self.confidentiality is Confidentiality.PRIVATE
 
     @property
+    def badge(self) -> str:
+        """Short tag for the parts that aren't the safe default, e.g. 'untrusted·private'."""
+        flags = []
+        if not self.is_trusted:
+            flags.append("untrusted")
+        if self.is_private:
+            flags.append("private")
+        return "·".join(flags)
+
+    @property
     def is_trusted(self) -> bool:
         return self.integrity is Integrity.TRUSTED
 

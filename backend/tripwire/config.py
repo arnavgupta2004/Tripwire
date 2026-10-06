@@ -42,6 +42,7 @@ class Settings:
     fetch_allowlist: tuple[str, ...] = ()
     planner_max_steps: int = 8
     planner_tool_mode: str = "native"  # native | json
+    context_turns: int = 8  # how many past turns stay in context (and keep their taint)
 
     @classmethod
     def from_env(cls, env_file: Path | None = REPO_ROOT / ".env") -> "Settings":
@@ -71,6 +72,7 @@ class Settings:
             ),
             planner_max_steps=int(e("PLANNER_MAX_STEPS") or 8),
             planner_tool_mode=(e("PLANNER_TOOL_MODE") or "native").strip().lower(),
+            context_turns=int(e("PLANNER_CONTEXT_TURNS") or 8),
         )
 
     @property

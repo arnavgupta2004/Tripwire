@@ -107,8 +107,10 @@ def chat(argv: list[str]) -> int:
 
     print("Commands: /usage  /memory  /new  /quit\n")
     while True:
+        badge = app.planner.context_label.badge
+        prompt = f"{_c(AMBER, '[' + badge + '] ')}{_c(BOLD, 'you> ')}" if badge else _c(BOLD, "you> ")
         try:
-            message = input(_c(BOLD, "you> ")).strip()
+            message = input(prompt).strip()
         except (EOFError, KeyboardInterrupt):
             print()
             break

@@ -218,14 +218,40 @@ def test_labels_carry_across_turns(make_router, settings):
         completion("Sent."),
     ])
     w.planner.send("Read this page about travel cards.")
-    assert w.planner.carry.integrity is Integrity.UNTRUSTED
+    assert w.planner.context_label.integrity is Integrity.UNTRUSTED
     second = w.planner.send("Now send me a brief.")
     # Untrusted content from turn 1 is still in context, so the send goes via the classifier.
     assert second.steps[0].decision.rule_id == "R1.untrusted_side_effect"
     assert second.steps[0].decision.models == ("nano",)
     assert [m["role"] for m in w.client.requests[-1]["messages"][:4]] == ["system", "user", "assistant", "user"]
     w.planner.reset()
-    assert w.planner.carry is None and w.planner.history == []
+    assert w.planner.context_label.badge == "" and w.planner.history == []
+
+
+def test_new_thread_drops_taint(make_router, settings):
+    w = World(make_router, settings, [call("tavily_extract", urls=[EVIL]), completion("Found it.")])
+    w.planner.send("Read this page.")
+    assert w.planner.context_label.badge == "untrusted"
+    w.planner.reset()  # /new
+    assert w.planner.context_label.badge == ""
+
+
+def test_taint_drops_when_turn_leaves_the_window(make_router, settings):
+    from dataclasses import replace
+
+    w = World(make_router, replace(settings, context_turns=1), [
+        call("tavily_extract", urls=[EVIL]), completion("Found it."),
+        completion("You're welcome."),
+        call("send_telegram", text="Pasta brief"), completion("Sent."),
+    ])
+    w.planner.send("Read this page.")
+    assert w.planner.context_label.badge == "untrusted"
+    w.planner.send("Thanks.")  # untrusted turn is now one turn back; window is 1
+    assert w.planner.context_label.badge == ""
+    third = w.planner.send("Send me a brief on pasta.")
+    # Taint has dropped, so a send-to-self on a trusted instruction needs no classifier.
+    assert third.steps[0].tool == "send_telegram"
+    assert all(s.decision.models == () for s in third.steps)
 
 
 def test_unbacked_action_claim_gets_one_nudge(make_router, settings):

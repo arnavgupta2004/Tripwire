@@ -20,7 +20,7 @@ from openai import BadRequestError
 from tripwire.config import Settings
 from tripwire.decision import Decision, Verdict
 from tripwire.gateway import CallResult, Gateway
-from tripwire.labels import Label, Labeled, TurnContext
+from tripwire.labels import BOTTOM, Label, Labeled, TurnContext
 from tripwire.models import ModelError, ModelRouter, parse_json_object
 from tripwire.tools import ToolCall
 
@@ -249,18 +249,32 @@ class Planner:
         self.max_steps = max_steps or settings.planner_max_steps
         self.tool_mode = tool_mode or settings.planner_tool_mode
         self.on_step = on_step
+        self.context_turns = settings.context_turns
         self.history: list[dict[str, Any]] = []
-        self.carry: Label | None = None  # label of earlier turns still in context
+        # One label per completed turn still inside the context window: the join of
+        # that turn's tool-output labels. Taint carries forward only while the turn
+        # that pulled it in is still in this list (see _finish / send).
+        self.turns: list[Label] = []
         self._turn: _Turn | None = None
+
+    @property
+    def context_label(self) -> Label:
+        """Taint the next turn starts with: the join of turns still in the window."""
+        from tripwire.labels import join
+
+        window = self.turns[-self.context_turns :] if self.context_turns > 0 else self.turns
+        return join(*window) if window else BOTTOM
 
     # --- public API ----------------------------------------------------------
 
     def send(self, message: str) -> TurnResult:
         if self._turn is not None and self._turn.paused is not None:
             raise RuntimeError("a tool call is waiting for approval; call resume() first")
+        self._trim_window()
         ctx = TurnContext(message)
-        if self.carry is not None:
-            ctx.observe(Labeled("[earlier conversation]", self.carry))
+        carry = self.context_label
+        if carry is not BOTTOM and carry != BOTTOM:
+            ctx.observe(Labeled("[earlier conversation]", carry))
         user_message = {"role": "user", "content": message}
         messages = [{"role": "system", "content": self._system_prompt()}, *self.history, user_message]
         self._turn = _Turn(ctx, user_message, messages)
@@ -285,7 +299,16 @@ class Planner:
         return self._run()
 
     def reset(self) -> None:
-        self.history, self.carry, self._turn = [], None, None
+        """Start a fresh thread: context and its taint drop."""
+        self.history, self.turns, self._turn = [], [], None
+
+    def _trim_window(self) -> None:
+        """Keep only the last context_turns turns. Taint from turns that fall out
+        of the window drops, because their summaries are no longer in context."""
+        if self.context_turns <= 0:
+            return
+        self.turns = self.turns[-self.context_turns :]
+        self.history = self.history[-2 * self.context_turns :]
 
     # --- loop ------------------------------------------------------------------
 
@@ -435,8 +458,12 @@ class Planner:
         return "\n".join(lines)
 
     def _finish(self, turn: _Turn, reply: str) -> TurnResult:
+        from tripwire.labels import join
+
         self.history += [turn.user_message, {"role": "assistant", "content": reply}]
-        self.carry = turn.ctx.label if self.carry is None else self.carry.join(turn.ctx.label)
+        # This turn's own taint contribution: the join of what its tools pulled in.
+        contribution = join(*(r.output_label for r in turn.ctx.history if r.output_label is not None))
+        self.turns.append(contribution)
         self._turn = None
         return TurnResult("done", reply, list(turn.steps))
 
