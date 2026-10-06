@@ -203,3 +203,9 @@ def test_pricing_from_file(tmp_path):
     p.write_text("models:\n  m: {input_per_m: 1.0, output_per_m: 2.0}\n")
     assert Pricing.from_file(p).cost("m", 1_000_000, 1_000_000) == 3.0
     assert Pricing.from_file(tmp_path / "missing.yaml").cost("m", 1, 1) is None
+
+
+def test_settings_repr_hides_secrets():
+    s = Settings(api_key="sk-secret-1", tavily_api_key="tvly-secret-2", telegram_bot_token="123:secret-3")
+    text = repr(s) + str(s)
+    assert "secret" not in text

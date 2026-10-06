@@ -31,6 +31,7 @@ packages = ["backend/tripwire", "backend/agent", "backend/skills", "backend/api"
 [tool.pytest.ini_options]
 pythonpath = ["backend"]
 testpaths = ["backend", "evals"]
+markers = ["live: calls real Token Factory models (needs NEBIUS_API_KEY); run with -m live"]
 
 [dependency-groups]
 dev = [

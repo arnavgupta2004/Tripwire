@@ -24,12 +24,13 @@ def _path(value: str | None, default: Path) -> Path:
 
 @dataclass(frozen=True)
 class Settings:
-    api_key: str = ""
+    # Secrets are excluded from repr so tracebacks and logs never print them.
+    api_key: str = field(default="", repr=False)
     base_url: str = DEFAULT_BASE_URL
     models: dict[str, str] = field(default_factory=dict)  # tier -> model id
     judge_tier: str = "ultra"
-    tavily_api_key: str = ""
-    telegram_bot_token: str = ""
+    tavily_api_key: str = field(default="", repr=False)
+    telegram_bot_token: str = field(default="", repr=False)
     telegram_chat_id: str = ""
     # A chat you control that stands in for the attacker in shield-off demos.
     telegram_demo_attacker_chat_id: str = ""

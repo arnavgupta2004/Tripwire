@@ -46,7 +46,11 @@ class TelegramSender:
         if self.demo_mode and not to_self and chat != self.demo_attacker_chat_id:
             return self._log(target, text, False, "demo mode: messages to other chats are not delivered")
 
-        resp = self.http.post(f"{API}/bot{self.token}/sendMessage", json={"chat_id": chat, "text": text})
+        try:
+            resp = self.http.post(f"{API}/bot{self.token}/sendMessage", json={"chat_id": chat, "text": text})
+        except httpx.HTTPError as exc:
+            # Never surface the exception text: Bot API URLs contain the token.
+            return self._log(target, text, False, f"network error contacting Telegram ({type(exc).__name__})")
         try:
             body = resp.json()
         except ValueError:
