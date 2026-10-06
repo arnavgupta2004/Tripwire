@@ -38,3 +38,4 @@ data/
 
 # Local planning docs
 TRIPWIRE_BUILD_SPEC.md
+.hypothesis/

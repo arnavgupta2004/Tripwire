@@ -25,5 +25,6 @@ testpaths = ["backend", "evals"]
 
 [dependency-groups]
 dev = [
+    "hypothesis>=6.168.5",
     "pytest>=9.1.1",
 ]
