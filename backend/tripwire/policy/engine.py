@@ -27,6 +27,10 @@ CALL_KEYS = frozenset(
         "side_effect",
         "destination",
         "egress",
+        "cap.reads_private",
+        "cap.sends_external",
+        "cap.writes_memory",
+        "cap.fetches_untrusted",
         "context.confidentiality",
         "context.integrity",
         "data.confidentiality",
@@ -54,6 +58,14 @@ def _label_facts(prefix: str, label: Label) -> dict[str, str]:
     }
 
 
+CAPABILITIES = ("reads_private", "sends_external", "writes_memory", "fetches_untrusted")
+
+
+def _capability_facts(capabilities: frozenset[str] | set[str] | tuple[str, ...]) -> dict[str, str]:
+    caps = set(capabilities)
+    return {f"cap.{c}": str(c in caps).lower() for c in CAPABILITIES}
+
+
 def call_facts(
     tool: str,
     side_effect: str,
@@ -61,12 +73,14 @@ def call_facts(
     context: Label,
     args: Label,
     egress: bool = False,
+    capabilities: frozenset[str] = frozenset(),
 ) -> dict[str, str]:
     return {
         "tool": tool,
         "side_effect": str(side_effect),
         "destination": str(destination) if destination else "none",
         "egress": str(egress).lower(),
+        **_capability_facts(capabilities),
         **_label_facts("context", context),
         **_label_facts("args", args),
         **_label_facts("data", context.join(args)),
@@ -78,6 +92,7 @@ def record_facts(record: CallRecord) -> dict[str, str]:
         "tool": record.tool,
         "side_effect": str(record.side_effect),
         "destination": str(record.destination) if record.destination else "none",
+        **_capability_facts(record.capabilities),
         **_label_facts("data", record.data_label),
     }
     if record.output_label is not None:

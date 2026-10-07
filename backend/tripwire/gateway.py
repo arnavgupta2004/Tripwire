@@ -195,6 +195,7 @@ class Gateway:
                 data_label=a.data_label,
                 decision=a.decision,
                 output_label=output.label if output else None,
+                capabilities=a.spec.capabilities if a.spec else frozenset(),
             )
         )
 
@@ -211,7 +212,9 @@ class Gateway:
 
         destination = spec.destination_of(call)
         args_label = join(*(v.label for v in ctx.lookup_all(_handles_in(call.args))))
-        facts = call_facts(call.tool, spec.side_effect, destination, ctx.label, args_label, spec.egress)
+        facts = call_facts(
+            call.tool, spec.side_effect, destination, ctx.label, args_label, spec.egress, spec.capabilities
+        )
         history = [record_facts(r) for r in ctx.executed]
 
         decision = self._decide(call, ctx, facts, history, ctx.label.join(args_label))

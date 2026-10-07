@@ -9,6 +9,7 @@ from tripwire.policy.engine import (
     call_facts,
     record_facts,
 )
+from tripwire.tools import build_default_registry
 
 USER = user_label()
 WEB = web_label("https://a.example")
@@ -21,12 +22,20 @@ def engine() -> PolicyEngine:
     return PolicyEngine.from_yaml()
 
 
+REGISTRY = build_default_registry("1001")
+
+
+def caps(tool):
+    """Capability tags of Tripwire's real tools (empty for names not in the registry)."""
+    return REGISTRY.get(tool).capabilities if tool in REGISTRY else frozenset()
+
+
 def facts(tool, side_effect, destination=None, context=USER, args=BOTTOM):
-    return call_facts(tool, side_effect, destination, context, args)
+    return call_facts(tool, side_effect, destination, context, args, capabilities=caps(tool))
 
 
 def ran(tool, side_effect, output, destination=None, data=USER):
-    rec = CallRecord("c", tool, {}, side_effect, destination, data, OK, output_label=output)
+    rec = CallRecord("c", tool, {}, side_effect, destination, data, OK, output_label=output, capabilities=caps(tool))
     return record_facts(rec)
 
 
@@ -195,7 +204,8 @@ def test_r5_not_triggered_for_non_egress_reads(engine):
 
 def test_r3_still_wins_over_r5_for_fetch_after_private_read(engine):
     history = [ran("read_file", "none", FILE)]
-    f = call_facts("fetch_url", "outbound", "external", join(USER, FILE), BOTTOM, egress=True)
+    f = call_facts("fetch_url", "outbound", "external", join(USER, FILE), BOTTOM, egress=True,
+                   capabilities=caps("fetch_url"))
     assert engine.evaluate(f, history).rule_id == "R3.exfiltration_chain"
 
 

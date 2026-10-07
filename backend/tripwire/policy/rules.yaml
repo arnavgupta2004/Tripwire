@@ -6,6 +6,9 @@
 # Condition keys (a value may be a scalar or a list meaning "any of"):
 #   tool, side_effect (none|local|outbound), destination (self|external)
 #   egress (true|false)    the call's arguments (query, URL) leave the machine
+#   cap.reads_private / cap.sends_external / cap.writes_memory / cap.fetches_untrusted
+#                          (true|false) the tool's capability tags. Composition rules
+#                          match these, not tool names, so they apply to any tool set.
 #   context.confidentiality / context.integrity   label of everything seen this turn
 #   data.confidentiality / data.integrity         context joined with the call's argument labels
 #   args.confidentiality / args.integrity         labels of values the arguments reference by handle
@@ -24,18 +27,18 @@ rules:
   # the last step is the call being checked.
   - id: R3.exfiltration_chain
     sequence:
-      - tool: [read_file, search_files, recall]
+      - cap.reads_private: true
         output.confidentiality: private
-      - tool: fetch_url
+      - cap.sends_external: true
         destination: external
     then: BLOCK
     reason: "Exfiltration chain ({chain}): private data was read this turn and {tool} would send a request to an external host."
 
   - id: R3.memory_poisoning
     sequence:
-      - tool: [tavily_extract, tavily_search, fetch_url]
+      - cap.fetches_untrusted: true
         output.integrity: untrusted
-      - tool: remember
+      - cap.writes_memory: true
     then: ESCALATE
     reason: "Memory poisoning risk ({chain}): web content was read this turn and is about to be written to long-term memory."
 

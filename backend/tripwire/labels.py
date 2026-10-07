@@ -118,6 +118,7 @@ class CallRecord:
     data_label: Label
     decision: Decision
     output_label: Label | None = None  # set only when the call executed
+    capabilities: frozenset[str] = frozenset()  # the tool's capability tags (see tools.Capability)
 
     @property
     def executed(self) -> bool:

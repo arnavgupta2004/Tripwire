@@ -25,6 +25,15 @@ class SideEffect(StrEnum):
     OUTBOUND = "outbound"  # sends data off the machine
 
 
+class Capability(StrEnum):
+    """What a tool can do, independent of its name. Composition rules (R3) match these."""
+
+    READS_PRIVATE = "reads_private"  # returns the user's private data (files, memory)
+    SENDS_EXTERNAL = "sends_external"  # pushes data to arbitrary internet endpoints (URLs, webhooks)
+    WRITES_MEMORY = "writes_memory"  # writes to long-term memory that later turns trust
+    FETCHES_UNTRUSTED = "fetches_untrusted"  # brings in content authored outside the user's control
+
+
 class Destination(StrEnum):
     SELF = "self"  # the user's own verified channel, or local storage
     EXTERNAL = "external"
@@ -55,10 +64,14 @@ class ToolSpec:
     # The call's arguments (a search query, a URL) leave the machine even if the
     # tool is read-only, so private specifics in them would leak.
     egress: bool = False
+    capabilities: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if self.side_effect is SideEffect.OUTBOUND and self.destination is None:
             raise ValueError(f"outbound tool {self.name!r} needs a destination classifier")
+        unknown = set(self.capabilities) - {c.value for c in Capability}
+        if unknown:
+            raise ValueError(f"tool {self.name!r} has unknown capabilities {sorted(unknown)}")
 
     def destination_of(self, call: ToolCall) -> Destination | None:
         if self.side_effect is SideEffect.NONE:
@@ -183,33 +196,28 @@ def build_default_registry(
     def fetched_page(call: ToolCall, result: Any) -> Label:
         return web_label(str(call.args.get("url", "unknown")))
 
+    C = Capability
+    untrusted_in = frozenset({C.FETCHES_UNTRUSTED})
+    private_in = frozenset({C.READS_PRIVATE})
     specs = [
-        ToolSpec(
-            "tavily_search", SideEffect.NONE, fixed_label(_web_label_for_search), stubs["tavily_search"], egress=True
-        ),
-        ToolSpec(
-            "tavily_extract", SideEffect.NONE, fixed_label(_web_label_for_extract), stubs["tavily_extract"], egress=True
-        ),
-        ToolSpec("read_file", SideEffect.NONE, fixed_label(private_file), stubs["read_file"]),
-        ToolSpec("search_files", SideEffect.NONE, fixed_label(_file_label_for_search), stubs["search_files"]),
-        ToolSpec("recall", SideEffect.NONE, stored_label, stubs["recall"]),
-        ToolSpec("remember", SideEffect.LOCAL, status_label, stubs["remember"]),
+        ToolSpec("tavily_search", SideEffect.NONE, fixed_label(_web_label_for_search), stubs["tavily_search"],
+                 egress=True, capabilities=untrusted_in),
+        ToolSpec("tavily_extract", SideEffect.NONE, fixed_label(_web_label_for_extract), stubs["tavily_extract"],
+                 egress=True, capabilities=untrusted_in),
+        ToolSpec("read_file", SideEffect.NONE, fixed_label(private_file), stubs["read_file"], capabilities=private_in),
+        ToolSpec("search_files", SideEffect.NONE, fixed_label(_file_label_for_search), stubs["search_files"],
+                 capabilities=private_in),
+        ToolSpec("recall", SideEffect.NONE, stored_label, stubs["recall"], capabilities=private_in),
+        ToolSpec("remember", SideEffect.LOCAL, status_label, stubs["remember"],
+                 capabilities=frozenset({C.WRITES_MEMORY})),
         ToolSpec("write_note", SideEffect.LOCAL, status_label, stubs["write_note"]),
-        ToolSpec(
-            "send_telegram",
-            SideEffect.OUTBOUND,
-            status_label,
-            stubs["send_telegram"],
-            destination=telegram_destination,
-        ),
-        ToolSpec(
-            "fetch_url",
-            SideEffect.OUTBOUND,
-            fixed_label(fetched_page),
-            stubs["fetch_url"],
-            destination=lambda call: Destination.EXTERNAL,
-            egress=True,
-        ),
+        # Messaging a person is not sends_external: a user may legitimately share with
+        # someone, so R2 holds it for approval or the judge rather than blocking outright.
+        ToolSpec("send_telegram", SideEffect.OUTBOUND, status_label, stubs["send_telegram"],
+                 destination=telegram_destination),
+        ToolSpec("fetch_url", SideEffect.OUTBOUND, fixed_label(fetched_page), stubs["fetch_url"],
+                 destination=lambda call: Destination.EXTERNAL, egress=True,
+                 capabilities=frozenset({C.SENDS_EXTERNAL, C.FETCHES_UNTRUSTED})),
     ]
     registry = ToolRegistry()
     for spec in specs:
