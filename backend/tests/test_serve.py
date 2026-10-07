@@ -11,6 +11,7 @@ def test_public_build_mounts_api_frontend_and_health(tmp_path, monkeypatch):
     (dist / "index.html").write_text("<!doctype html><title>Tripwire</title>")
     monkeypatch.setattr(serve, "FRONTEND_DIST", dist)
     monkeypatch.setenv("PUBLIC_DEMO", "true")
+    monkeypatch.setenv("NEBIUS_API_KEY", "test-key")  # never used: no model calls here
     monkeypatch.setenv("DATA_DIR", str(tmp_path / "data"))
     client = TestClient(serve.build())
 
