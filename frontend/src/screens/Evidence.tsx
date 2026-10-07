@@ -2,8 +2,8 @@ import { useMemo } from "react";
 import {
   Bar, BarChart, CartesianGrid, Cell, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
-import summary from "../data/agentdojo_summary.json";
-import breakdown from "../data/agentdojo_breakdown.json";
+import summary from "../results/agentdojo_summary.json";
+import breakdown from "../results/agentdojo_breakdown.json";
 import { useStore } from "../store";
 import { cssVar } from "../theme";
 import { Chip } from "../components/ui/primitives";
