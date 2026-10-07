@@ -1,0 +1,181 @@
+# Tripwire's mapping of AgentDojo tools onto its label model. FROZEN before any
+# injection task is run (see git history). Only utility-only runs may change it,
+# and any change is re-frozen in its own commit before attacked runs.
+#
+# Tripwire's policy (backend/tripwire/policy/rules.yaml) is used unchanged. This
+# file only declares, per tool, the same facts Tripwire declares for its own
+# tools: side effect, destination, output label, egress and capability tags.
+
+version: 1
+
+principles:
+  integrity: >
+    Integrity follows who authored the content, not where it is stored. Anything
+    written by someone other than the user (messages, inboxes, web pages, bills,
+    transaction subjects) is untrusted. System-of-record data the user's own
+    account reports about itself (balance, IBAN, the channel and member
+    directory) is trusted.
+  confidentiality: >
+    Private means the user's personal data, as in Tripwire spec 3.1: their inbox
+    and direct messages, account details, transactions and files. Shared team
+    channels are visible to the whole workspace and are not the user's personal
+    data, so they are public within the trust domain.
+  destination: >
+    "self" is the user's trust domain. In team mode that is the user's own
+    workspace (its members and channels) or the user's own bank account. In
+    strict mode only the user is self. The open internet and bringing outside
+    people in are always external.
+  capabilities: >
+    Same tags as Tripwire's own tools. reads_private: returns the user's private
+    data. fetches_untrusted: returns content authored outside the user's control.
+    sends_external: pushes data to arbitrary internet endpoints (URLs). Paying or
+    messaging a named person is not sends_external, matching Tripwire's
+    send_telegram: a user may legitimately do it, so R2 holds it for approval or
+    the judge instead of blocking outright. writes_memory: none here.
+  get_webpage: >
+    Treated like Tripwire's fetch_url: an HTTP request to an arbitrary host is
+    outbound, because the URL itself can carry data.
+
+# Destination resolvers (implemented in adapter.py):
+#   self / external                 fixed
+#   workspace_member(<arg>)         self if <arg> is a member of the user's workspace
+#   own_account(<arg>)              self if <arg> is the user's own IBAN
+#   by_mode                         self in team mode, external in strict mode
+
+# Reader schemas (Tripwire full condition only) for untrusted outputs:
+#   messages: who said what to whom, summarised; links and named entities as data
+#   page:     title, summary, key facts, links
+#   records:  per-record fields as data, free text summarised
+
+suites:
+  slack:
+    tools:
+      get_channels:
+        side_effect: none
+        output: {confidentiality: public, integrity: trusted, source: "slack:channels"}
+        capabilities: []
+        rationale: Workspace directory (system of record).
+      get_users_in_channel:
+        side_effect: none
+        output: {confidentiality: public, integrity: trusted, source: "slack:members:{channel}"}
+        capabilities: []
+        rationale: Workspace directory (system of record).
+      read_channel_messages:
+        side_effect: none
+        output: {confidentiality: public, integrity: untrusted, source: "slack:channel:{channel}"}
+        capabilities: [fetches_untrusted]
+        reader_schema: messages
+        rationale: Written by other members; shared team content, not the user's personal data.
+      read_inbox:
+        side_effect: none
+        output: {confidentiality: private, integrity: untrusted, source: "slack:inbox:{user}"}
+        capabilities: [reads_private, fetches_untrusted]
+        reader_schema: messages
+        rationale: Direct messages are personal data, written by others.
+      get_webpage:
+        side_effect: outbound
+        destination: external
+        egress: true
+        output: {confidentiality: public, integrity: untrusted, source: "web:{url}"}
+        capabilities: [sends_external, fetches_untrusted]
+        reader_schema: page
+        rationale: Arbitrary internet host; same semantics as Tripwire's fetch_url.
+      post_webpage:
+        side_effect: outbound
+        destination: external
+        egress: true
+        output: status
+        capabilities: [sends_external]
+        rationale: Publishes content to an arbitrary internet host.
+      send_direct_message:
+        side_effect: outbound
+        destination: {team: "workspace_member(recipient)", strict: external}
+        output: status
+        capabilities: []
+        rationale: Messaging a named person; R2/R1 apply, as for Tripwire's send_telegram.
+      send_channel_message:
+        side_effect: outbound
+        destination: by_mode
+        output: status
+        capabilities: []
+        rationale: Posting to a channel of the user's own workspace.
+      invite_user_to_slack:
+        side_effect: outbound
+        destination: external
+        output: status
+        capabilities: []
+        rationale: Brings an outside person into the workspace and emails them.
+      add_user_to_channel:
+        side_effect: local
+        output: status
+        capabilities: []
+        rationale: Changes membership inside the workspace.
+      remove_user_from_slack:
+        side_effect: local
+        output: status
+        capabilities: []
+        rationale: Changes membership inside the workspace.
+
+  banking:
+    tools:
+      get_iban:
+        side_effect: none
+        output: {confidentiality: private, integrity: trusted, source: "bank:account"}
+        capabilities: [reads_private]
+        rationale: The user's own account details (system of record).
+      get_balance:
+        side_effect: none
+        output: {confidentiality: private, integrity: trusted, source: "bank:account"}
+        capabilities: [reads_private]
+        rationale: The user's own account details (system of record).
+      get_user_info:
+        side_effect: none
+        output: {confidentiality: private, integrity: trusted, source: "bank:user"}
+        capabilities: [reads_private]
+        rationale: The user's personal details (system of record).
+      get_most_recent_transactions:
+        side_effect: none
+        output: {confidentiality: private, integrity: untrusted, source: "bank:transactions"}
+        capabilities: [reads_private, fetches_untrusted]
+        reader_schema: records
+        rationale: Personal financial history; subjects are written by counterparties.
+      get_scheduled_transactions:
+        side_effect: none
+        output: {confidentiality: private, integrity: untrusted, source: "bank:scheduled"}
+        capabilities: [reads_private, fetches_untrusted]
+        reader_schema: records
+        rationale: Personal financial data; subjects can be written by counterparties.
+      read_file:
+        side_effect: none
+        output: {confidentiality: private, integrity: untrusted, source: "file:{file_path}"}
+        capabilities: [reads_private, fetches_untrusted]
+        reader_schema: page
+        rationale: The user's files, but bills and notices are authored by third parties.
+      send_money:
+        side_effect: outbound
+        destination: "own_account(recipient)"
+        output: status
+        capabilities: []
+        rationale: Paying a named recipient; like messaging a person, R2/R1 apply.
+      schedule_transaction:
+        side_effect: outbound
+        destination: "own_account(recipient)"
+        output: status
+        capabilities: []
+        rationale: Future payment to a named recipient.
+      update_scheduled_transaction:
+        side_effect: outbound
+        destination: "own_account(recipient)"
+        output: status
+        capabilities: []
+        rationale: Changes a payment to a named recipient.
+      update_password:
+        side_effect: local
+        output: status
+        capabilities: []
+        rationale: Changes the user's own account settings.
+      update_user_info:
+        side_effect: local
+        output: status
+        capabilities: []
+        rationale: Changes the user's own account settings.
