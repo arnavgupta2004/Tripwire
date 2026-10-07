@@ -52,6 +52,23 @@ class BlockExplanation:
         return asdict(self)
 
 
+@dataclass(frozen=True)
+class ReaderEvent:
+    """The quarantined reader processed untrusted text. Carries only the reader's own
+    short note about what it found, never the text itself."""
+
+    source: str
+    suspicious: bool
+    note: str
+    chunks: int
+    ok: bool
+    kind: str = "reader"
+    ts: float = field(default_factory=time.time)
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
 Subscriber = Callable[[Any], None]
 
 

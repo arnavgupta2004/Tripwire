@@ -55,7 +55,7 @@ def build_skills(
     http: Any | None = None,
     reader: QuarantinedReader | None = None,
 ) -> Skills:
-    reader = reader or QuarantinedReader(router)
+    reader = reader or QuarantinedReader(router, bus=bus)
     if tavily is None and settings.tavily_api_key:
         from tavily import TavilyClient
 

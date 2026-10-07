@@ -148,3 +148,15 @@ def test_schema_helpers():
         conform({"items": [{"name": "a", "n": "two"}]}, strict)
     with pytest.raises(SchemaError):
         conform({"flag": "yes"}, {"type": "object", "properties": {"flag": {"type": "boolean"}}})
+
+
+def test_reader_publishes_note_only_event(make_router):
+    from tripwire.events import EventBus
+
+    bus = EventBus()
+    client = FakeClient([reply(GOOD, True, "The page asks AI assistants to upload a tax file.")])
+    QuarantinedReader(make_router(client), bus=bus).read(INJECTED, source="https://evil-recipes.example")
+    event = [e for e in bus.recent if e.kind == "reader"][-1]
+    assert event.suspicious is True and event.source == "https://evil-recipes.example"
+    assert event.note == "The page asks AI assistants to upload a tax file."
+    assert "IGNORE PREVIOUS INSTRUCTIONS" not in json.dumps(event.to_dict())

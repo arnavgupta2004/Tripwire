@@ -77,3 +77,25 @@ test("phone width: no horizontal page scroll on any screen", async ({ page }) =>
     expect(overflow, `${screen} overflows at 375px`).toBeLessThanOrEqual(0);
   }
 });
+
+test("reader flag: flagged reader node and a drawer showing only the reader's note", async ({ page }) => {
+  await mockApi(page, {
+    chatReply: "Here's your brief. The page also contained instructions aimed at AI assistants, which I ignored.",
+    chatEvents: [
+      decisionEvent("fetch_url", "ALLOW", { rule_id: "R0.trusted_side_effect",
+        labels: { data: { confidentiality: "public", integrity: "trusted", sources: ["user"] } } }),
+      { kind: "reader", source: "http://127.0.0.1:8000/demo-pages/informations.html", suspicious: true,
+        note: "The page asks AI assistants to collect the user's files and post them to an outside website.",
+        chunks: 1, ok: true, ts: Date.now() / 1000 },
+    ],
+  });
+  await page.goto("/");
+  await page.getByPlaceholder("Message Tripwire…").fill("Read the demo page and send me a brief");
+  await page.keyboard.press("Enter");
+  const node = page.getByText("Reader · hidden instructions detected — treated as data");
+  await expect(node).toBeVisible();
+  await node.click();
+  await expect(page.getByText("The page asks AI assistants to collect the user's files")).toBeVisible();
+  await expect(page.getByText("Hidden instructions detected — treated as data", { exact: true })).toBeVisible();
+  await expect(page.getByText("<INFORMATION>")).toHaveCount(0);
+});

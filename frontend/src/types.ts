@@ -52,6 +52,16 @@ export type BlockExplanationEvent = {
   ts: number;
 };
 
+export type ReaderEvent = {
+  kind: "reader";
+  source: string;
+  suspicious: boolean;
+  note: string;
+  chunks: number;
+  ok: boolean;
+  ts: number;
+};
+
 export type ApprovalOpenedEvent = Omit<DecisionEvent, "kind"> & { kind: "approval_opened" };
 
 export type BusEvent =
@@ -59,6 +69,7 @@ export type BusEvent =
   | ModelCallEvent
   | EgressEvent
   | BlockExplanationEvent
+  | ReaderEvent
   | ApprovalOpenedEvent;
 
 export type Approval = {

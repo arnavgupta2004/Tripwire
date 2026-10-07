@@ -1,8 +1,27 @@
-import type { BusEvent, DecisionEvent, BlockExplanationEvent } from "../types";
+import type { BusEvent, DecisionEvent, BlockExplanationEvent, ReaderEvent } from "../types";
 
 export type FlowTone = "trusted" | "untrusted" | "private" | "danger" | "approval";
 
 export type DecisionNode = DecisionEvent & { explanation: string | null };
+
+/** A quarantined-reader pass, attached to the tool call that fetched the content. */
+export type ReaderNode = ReaderEvent & { id: string; parent: string | null };
+
+export type Selection = { type: "decision"; node: DecisionNode } | { type: "reader"; node: ReaderNode };
+
+const FETCH_TOOLS = new Set(["fetch_url", "tavily_extract", "tavily_search"]);
+
+/** Each reader event belongs to the most recent fetch-like call before it (the reader
+ *  runs while that call executes, after its decision was published). */
+export function readersFromEvents(events: BusEvent[]): ReaderNode[] {
+  const out: ReaderNode[] = [];
+  let lastFetch: string | null = null;
+  events.forEach((e, i) => {
+    if (e.kind === "decision" && FETCH_TOOLS.has((e as DecisionEvent).tool)) lastFetch = (e as DecisionEvent).call_id;
+    if (e.kind === "reader") out.push({ ...(e as ReaderEvent), id: `reader-${i}-${(e as ReaderEvent).ts}`, parent: lastFetch });
+  });
+  return out;
+}
 
 /** The dominant data source feeding a call, used to draw its incoming edge. */
 export function sourceOf(e: DecisionEvent): { id: string; label: string; tone: FlowTone } {

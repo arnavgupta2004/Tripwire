@@ -1,4 +1,4 @@
-import type { DecisionNode } from "./flowModel";
+import type { DecisionNode, ReaderNode, Selection } from "./flowModel";
 import { Chip } from "./ui/primitives";
 
 const VERDICT_TONE: Record<string, "trusted" | "untrusted" | "danger"> = {
@@ -17,8 +17,52 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export function Drawer({ decision, onClose }: { decision: DecisionNode | null; onClose: () => void }) {
-  if (!decision) return null;
+function Shell({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-30 bg-black/20" onClick={onClose} />
+      <aside className="animate-slideIn fixed right-0 top-0 z-40 flex h-full w-[22rem] max-w-[90vw] flex-col
+                        border-l border-line bg-surface-raised shadow-drawer">
+        <div className="flex items-center justify-between border-b border-line px-4 py-3">
+          <span className="font-mono text-sm font-semibold">{title}</span>
+          <button onClick={onClose} className="text-ink-faint hover:text-ink" aria-label="Close">✕</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-4">{children}<div className="h-6" /></div>
+      </aside>
+    </>
+  );
+}
+
+function ReaderView({ r }: { r: ReaderNode }) {
+  return (
+    <>
+      <Row label="Quarantined reader">
+        <Chip tone={r.suspicious ? "untrusted" : "trusted"}>
+          {r.suspicious ? "Hidden instructions detected — treated as data" : "Nothing suspicious found"}
+        </Chip>
+      </Row>
+      {r.note && <Row label="What the reader found"><span className="text-ink-soft">{r.note}</span></Row>}
+      {r.source && <Row label="Source"><span className="font-mono text-xs break-all">{r.source}</span></Row>}
+      <Row label="What the assistant saw">
+        <span className="text-ink-soft">
+          A structured summary written by Nemotron Nano with no tools. The page's own text never reached the
+          assistant, so instructions hidden in it are just data.
+        </span>
+      </Row>
+      {!r.ok && <Row label="Note"><span className="text-danger">The reader could not fully process this content.</span></Row>}
+    </>
+  );
+}
+
+export function Drawer({ selection, onClose }: { selection: Selection | null; onClose: () => void }) {
+  if (!selection) return null;
+  if (selection.type === "reader") {
+    return <Shell title="reader" onClose={onClose}><ReaderView r={selection.node} /></Shell>;
+  }
+  return <DecisionDrawer decision={selection.node} onClose={onClose} />;
+}
+
+function DecisionDrawer({ decision, onClose }: { decision: DecisionNode; onClose: () => void }) {
   const d = decision;
   const tone = VERDICT_TONE[d.verdict] || "untrusted";
   const data = d.labels.data;

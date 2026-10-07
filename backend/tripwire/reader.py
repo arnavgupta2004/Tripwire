@@ -196,12 +196,23 @@ class QuarantinedReader:
     tier = "nano"
     quarantined = True
 
-    def __init__(self, router: ModelRouter, chunk_chars: int = CHUNK_CHARS, max_chunks: int = MAX_CHUNKS) -> None:
+    def __init__(self, router: ModelRouter, chunk_chars: int = CHUNK_CHARS, max_chunks: int = MAX_CHUNKS,
+                 bus: Any = None) -> None:
         self.router = router
         self.chunk_chars = chunk_chars
         self.max_chunks = max_chunks
+        self.bus = bus  # optional EventBus: publishes a ReaderEvent per read (note only, no text)
 
     def read(self, text: str, schema: Mapping[str, Any] | None = None, source: str = "") -> ReaderResult:
+        result = self._read(text, schema, source)
+        if self.bus is not None:
+            from tripwire.events import ReaderEvent
+
+            self.bus.publish(ReaderEvent(source, result.suspicious_instructions_detected, result.suspicious_note,
+                                         result.chunks, result.ok))
+        return result
+
+    def _read(self, text: str, schema: Mapping[str, Any] | None = None, source: str = "") -> ReaderResult:
         schema = dict(schema or DEFAULT_SCHEMA)
         validate_schema(schema)
         if schema.get("type") != "object":
