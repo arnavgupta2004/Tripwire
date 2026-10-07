@@ -40,6 +40,21 @@ assistant; an approval that pauses a turn can be answered from any of them.
 Tests: `uv run pytest` (unit, runs in CI) and `uv run pytest -m live -s` (real
 Nemotron calls on Token Factory; needs `.env`).
 
+## The app
+
+```bash
+uv run uvicorn api.main:build --factory --app-dir backend   # API on :8000
+cd frontend && npm install && npm run dev                   # UI on http://localhost:5173
+```
+
+Click **Load demo**, then send the suggested prompt. The flow graph shows every
+tool call colored by the data flowing through it; a blocked call turns red, and
+clicking it shows the rule, the decision, the models that ran and the Ultra
+judge's explanation. Screens: Assistant, Memory, Routines, Evidence (the AgentDojo
+results below). Design notes: [frontend/DESIGN.md](frontend/DESIGN.md).
+
+![A blocked send, with the decision drawer open](docs/screenshots/assistant-blocked-drawer.jpg)
+
 ## Benchmark: AgentDojo
 
 Tripwire was evaluated as a defense on [AgentDojo](https://github.com/ethz-spylab/agentdojo)
