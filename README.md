@@ -47,13 +47,17 @@ uv run uvicorn api.main:build --factory --app-dir backend   # API on :8000
 cd frontend && npm install && npm run dev                   # UI on http://localhost:5173
 ```
 
-Click **Load demo**, then send the suggested prompt. The flow graph shows every
-tool call colored by the data flowing through it; a blocked call turns red, and
-clicking it shows the rule, the decision, the models that ran and the Ultra
-judge's explanation. Screens: Assistant, Memory, Routines, Evidence (the AgentDojo
+Click **Load demo**, then **Send**. The suggested prompt reads your (fictional)
+tax file and then asks for an article from an outside site; the exfiltration rule
+blocks that fetch, because private data was read in the same turn (blocked in 5
+of 5 live runs). The flow graph shows every tool call colored by the data flowing
+through it; the blocked call turns red, and clicking it shows the rule, the reason
+and the Ultra judge's explanation, which arrives a moment after the block. The
+rule is deliberately conservative, and here it stops a fetch you asked for (see
+the utility trade-off below). Screens: Assistant, Memory, Routines, Evidence (the AgentDojo
 results below). Design notes: [frontend/DESIGN.md](frontend/DESIGN.md).
 
-![A blocked send, with the decision drawer open](docs/screenshots/assistant-blocked-drawer.jpg)
+![The demo block, with the decision drawer open](docs/screenshots/demo-block-drawer.jpg)
 
 ## Benchmark: AgentDojo
 

@@ -54,7 +54,12 @@ export function Drawer({ decision, onClose }: { decision: DecisionNode | null; o
               <div className="flex flex-wrap gap-1.5">
                 {d.models.map((m, i) => <Chip key={i} tone="brand" mono>{m}</Chip>)}
               </div>
-            ) : <span className="text-ink-faint">none (deterministic rule)</span>}
+            ) : (
+              <span className="text-ink-faint">
+                none for the decision (deterministic rule)
+                {d.explanation ? "; Ultra wrote the explanation afterwards" : ""}
+              </span>
+            )}
           </Row>
           {d.destination && <Row label="Destination">{d.destination}</Row>}
           <div className="h-6" />

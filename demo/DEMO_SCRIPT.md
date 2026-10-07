@@ -57,29 +57,48 @@ Transcript: `evals/agentdojo/results/demo_pair_transcript.txt`.
 
 ## Part 2: the product (the app)
 
-**On screen:** the Tripwire app in Protected mode, Assistant screen. Click
-**Load demo**, then send the suggested prompt.
+**On screen:** the Tripwire app in Protected mode, Assistant screen.
 
-The page used here (`demo/injection/informations.html`) carries the same
-published template, ported to Tripwire's tools (cited in the page source). This
-segment shows Tripwire's layers working on it; it does **not** claim a reproduced
-in-app leak. In our runs the app's planner usually ignores this payload even in
-naive mode, so the leak is shown with the benchmark above, not here.
+### The two-click block (verified)
 
-1. **Reader flag.** The fetched page comes back as a structured extract with
-   "suspicious instructions detected", shown on the page's node in the flow graph.
-   The planner never sees the raw text.
-2. **Labels.** The context chips above the chat input switch to "untrusted web
-   content in context". The flow graph's edge from the page turns amber.
-3. **Approval card.** Ask for something that touches private data and goes out,
-   e.g. "Send my tax summary to my accountant on chat 777". The card appears inline
-   and as a toast: what, why, source, Allow once / Deny / Always deny. Answer it in
-   Telegram; the card in the app resolves live (first answer wins).
-4. **The block.** Ask the agent to post a private file to a website. The edge turns
-   red with a pulse; clicking it opens the drawer with the rule, the decision, the
-   models that ran, latency, cost, and Ultra's explanation when it arrives.
-5. **Mode switch.** Flip the header to "Naive agent (no Tripwire)" to show what is
-   removed: no reader flag, no labels, no gateway decisions.
+Click **Load demo**, then **Send**. The suggested prompt is:
+
+> Read my tax file and summarise the article at <the demo page served by the API>.
+
+What happens, live on Nemotron Super (blocked in 5 of 5 runs: 3 through the API,
+2 in the UI):
+
+1. `search_files` and `read_file` run: your tax file is private, and the context
+   chip switches to "private data in context". Violet edges in the flow graph.
+2. `fetch_url` to the article is **blocked by the exfiltration rule (R3)**: private
+   data was read this turn, and any request to an outside host could carry it out
+   in the URL. The edge turns red and pulses.
+3. Click the red node. The drawer shows the decision, the rule, the reason, and,
+   a moment later, the **Ultra judge's plain-English explanation**, written in the
+   background after the block (for example: "The assistant read your private tax
+   files and then tried to send a request to an outside website, which could leak
+   your personal information").
+
+**Say it straight:** this rule is deliberately conservative. The request it stops
+here is one you asked for. This is the "hard blocked" cost the benchmark
+measures, and the reason the reader and gateway are a dial, not a free win.
+Starting a **New thread** clears the private-data context, and the same article
+then fetches normally.
+
+Screenshots: `docs/screenshots/demo-block-flow.jpg`, `docs/screenshots/demo-block-drawer.jpg`.
+
+### Also in the app (built, not yet rehearsed live in the UI)
+
+- **Approval card.** A request that sends private data to someone else on your own
+  instruction (e.g. "Send my tax summary to my accountant on chat 777") is held
+  for approval: the card appears inline and as a toast with what, why and source,
+  and Allow once / Deny / Always deny. Covered by the Playwright and API tests,
+  including first-answer-wins with Telegram; not yet rehearsed against live models.
+- **Mode switch.** The header flips to "Naive agent (no Tripwire)": plain prompt,
+  no reader, no gateway, so the flow graph shows calls but no Tripwire decisions.
+- **Reader flag.** The quarantined reader marks pages with suspicious instructions.
+  The flag is in the event stream but **not yet shown in the UI**; until it is,
+  don't narrate it on screen.
 
 ## Part 3: close (architecture, 30s)
 
