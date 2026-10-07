@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #16202e;
+  --ink-soft: #46556a;
+  --ink-faint: #8795a8;
+  --surface: #f6f8fb;
+  --surface-raised: #ffffff;
+  --surface-sunken: #eef2f7;
+  --line: #dde4ec;
+  --brand: #0d7d72;
+  --brand-soft: #d7efec;
+  --trusted: #2f9e6e;
+  --untrusted: #d98a2b;
+  --private: #7c5cd6;
+  --danger: #d6454f;
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  --ink: #e8eef6;
+  --ink-soft: #a7b4c6;
+  --ink-faint: #6b7a8f;
+  --surface: #0e151f;
+  --surface-raised: #161f2b;
+  --surface-sunken: #0a1017;
+  --line: #273243;
+  --brand: #2bb8a8;
+  --brand-soft: #123b39;
+  --trusted: #45c184;
+  --untrusted: #e6a34d;
+  --private: #a287e8;
+  --danger: # e85b64;
+  --danger: #e85b64;
+  color-scheme: dark;
+}
+
+* { border-color: var(--line); }
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: Inter, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+::selection { background: var(--brand-soft); }
+
+/* Scrollbars that match the theme */
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* React Flow theme bridge */
+.react-flow__attribution { display: none; }
+.react-flow__edge-path { stroke-width: 2px; }
