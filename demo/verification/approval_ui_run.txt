@@ -1,0 +1,16 @@
+Approval rehearsal 1: approved from the web UI (live, Nemotron on Token Factory), 2026-10-07
+
+User (new thread): "Send my tax summary to my accountant Priya on Telegram chat 777."
+Planner: asked where the tax summary is (no tool calls).
+User: "It's tax_2025.txt in my files. Read it and send Priya a short summary."
+
+Event stream (from /events):
+  decision        read_file      ALLOW           R4.read_only_trusted
+  decision        send_telegram  NEEDS_APPROVAL  R2.private_outbound      call c_f142a2829066
+  approval_opened send_telegram  NEEDS_APPROVAL  R2.private_outbound      ap_1 (card inline + toast)
+  [clicked "Allow once" on the inline card]
+  decision        send_telegram  ALLOW           A0.user_approved         call c_f142a2829066 (same call)
+  egress          send_telegram  chat:777        NOT delivered - demo mode: messages to other chats are not delivered
+
+Result: the turn resumed after approval and the planner replied. Delivery to chat 777
+is suppressed in DEMO_MODE by design; the send itself ran.

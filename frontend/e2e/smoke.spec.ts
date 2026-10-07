@@ -99,3 +99,16 @@ test("reader flag: flagged reader node and a drawer showing only the reader's no
   await expect(page.getByText("Hidden instructions detected — treated as data", { exact: true })).toBeVisible();
   await expect(page.getByText("<INFORMATION>")).toHaveCount(0);
 });
+
+test("an approved call turns from held to allowed in the graph", async ({ page }) => {
+  const held = decisionEvent("send_telegram", "NEEDS_APPROVAL", { rule_id: "R2.private_outbound" });
+  const approved = { ...held, verdict: "ALLOW", rule_id: "A0.user_approved", ts: held.ts + 1,
+                     reason: "Approved by the user." };
+  await mockApi(page, { chatReply: "Sent to Priya.", chatEvents: [held, approved] });
+  await page.goto("/");
+  await page.getByPlaceholder("Message Tripwire…").fill("Send my tax summary to Priya on chat 777");
+  await page.keyboard.press("Enter");
+  await page.getByRole("button", { name: "send_telegram", exact: true }).click();
+  await expect(page.getByText("A0.user_approved")).toBeVisible();
+  await expect(page.getByText("Allowed", { exact: true })).toBeVisible();
+});

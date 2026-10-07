@@ -49,14 +49,18 @@ export function decisionsFromEvents(events: BusEvent[]): DecisionNode[] {
       explanations.set(be.call_id, be.explanation);
     }
   }
-  const out: DecisionNode[] = [];
-  const seen = new Set<string>();
+  // One node per call, in first-seen order; a later decision for the same call (e.g. the
+  // user approving a held action) replaces the earlier one.
+  const byCall = new Map<string, DecisionNode>();
   for (const e of events) {
     if (e.kind !== "decision") continue;
     const d = e as DecisionEvent;
-    if (seen.has(d.call_id)) continue;
-    seen.add(d.call_id);
-    out.push({ ...d, explanation: d.explanation || explanations.get(d.call_id) || null });
+    const prev = byCall.get(d.call_id);
+    byCall.set(d.call_id, {
+      ...d,
+      explanation: d.explanation || explanations.get(d.call_id) || prev?.explanation || null,
+      evidence: d.evidence || prev?.evidence || null,
+    });
   }
-  return out;
+  return [...byCall.values()];
 }
