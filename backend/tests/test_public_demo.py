@@ -5,7 +5,7 @@ from dataclasses import replace
 from fastapi.testclient import TestClient
 
 from api.main import CAP_MESSAGE, create_app
-from api.visitors import VisitorSessions, public_settings
+from api.visitors import PUBLIC_SELF_CHAT, VisitorSessions, public_settings
 from tests.test_api import FakeRouter
 from tests.test_session import FakePlanner, _settings, _skills, done
 from tripwire.events import EventBus
@@ -48,9 +48,17 @@ def chat(client, visitor, msg="hello"):
 def test_public_settings_lock_the_demo_down(tmp_path):
     s = public_settings(replace(_settings(), telegram_bot_token="tok", telegram_chat_id="1",
                                 demo_mode=False), tmp_path)
-    assert s.demo_mode and s.telegram_bot_token == "" and s.telegram_chat_id == ""
+    assert s.demo_mode and s.telegram_bot_token == "" and s.telegram_chat_id == PUBLIC_SELF_CHAT
     assert s.fetch_allowlist == ("127.0.0.1", "localhost")
     assert s.data_dir == tmp_path / "data"
+
+
+def test_send_to_self_is_never_delivered(tmp_path):
+    from skills.messaging import TelegramSender
+
+    s = public_settings(_settings(), tmp_path)
+    out = TelegramSender(s.telegram_bot_token, s.telegram_chat_id, EventBus(), demo_mode=s.demo_mode).send("hi")
+    assert out["to"] == "self" and out["delivered"] is False and "not sent" in out["note"]
 
 
 def test_visitors_get_isolated_sessions():

@@ -41,6 +41,8 @@ class TelegramSender:
 
         if not chat:
             return self._log(target, text, False, "no chat id configured (set TELEGRAM_CHAT_ID)")
+        if not self.token and self.demo_mode:
+            return self._log(target, text, False, "demo: Telegram delivery is off here; the message was not sent")
         if not self.token:
             return self._log(target, text, False, "no bot token configured (set TELEGRAM_BOT_TOKEN)")
         if self.demo_mode and not to_self and chat != self.demo_attacker_chat_id:

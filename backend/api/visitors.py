@@ -21,6 +21,8 @@ from tripwire.guard import SpendGuard
 from tripwire.session import Session
 
 VISITOR_ID = re.compile(r"^[A-Za-z0-9_-]{8,64}$")
+# The visitor's own chat, for the policy. With no bot token nothing reaches Telegram.
+PUBLIC_SELF_CHAT = "public-demo-visitor"
 
 
 class InvalidVisitor(ValueError):
@@ -33,7 +35,7 @@ def public_settings(base: Settings, visitor_dir: Path) -> Settings:
         base,
         demo_mode=True,
         telegram_bot_token="",  # nothing is ever delivered from the public demo
-        telegram_chat_id="",
+        telegram_chat_id=PUBLIC_SELF_CHAT,
         telegram_demo_attacker_chat_id="",
         data_dir=visitor_dir / "data",
         notes_dir=visitor_dir / "notes",
