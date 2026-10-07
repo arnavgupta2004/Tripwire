@@ -10,7 +10,7 @@ import queue
 import threading
 from typing import Any
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -57,6 +57,14 @@ def create_app(session: Session) -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    if session.settings.demo_mode:
+        # Serve the demo pages from the API so the seeded demo needs no extra server.
+        from fastapi.staticfiles import StaticFiles
+
+        from tripwire.config import REPO_ROOT
+
+        app.mount("/demo-pages", StaticFiles(directory=REPO_ROOT / "demo" / "injection"), name="demo-pages")
 
     @app.get("/health")
     def health() -> dict[str, Any]:
@@ -178,10 +186,13 @@ def create_app(session: Session) -> FastAPI:
         return {"ok": True, "reply": outcome.reply}
 
     @app.post("/demo/load")
-    def demo_load() -> dict[str, Any]:
+    def demo_load(request: Request) -> dict[str, Any]:
         if not session.settings.demo_mode:
             return {"ok": False, "error": "demo load is only available in DEMO_MODE"}
-        return {"ok": True, **session.seed_demo()}
+        # The demo page is served by this API; the agent fetches it server-side, so use the
+        # address this server is bound to (not the browser's Host, which may be the UI proxy).
+        host, port = request.scope.get("server") or ("127.0.0.1", 8000)
+        return {"ok": True, **session.seed_demo(f"http://{host}:{port}/")}
 
     return app
 

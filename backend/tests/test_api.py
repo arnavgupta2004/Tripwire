@@ -180,7 +180,7 @@ def test_demo_load_seeds_state():
     session, client = build([])
     session.settings = replace(session.settings, demo_mode=True)
     body = client.post("/demo/load").json()
-    assert body["ok"] and "paste.evil.example" in body["suggested_prompt"]
+    assert body["ok"] and "tax file" in body["suggested_prompt"]
     facts = client.get("/memory").json()["facts"]
     assert any(not f["trusted"] for f in facts) and any(f["trusted"] for f in facts)
     assert client.get("/memory").json()["tasks"][0]["topic"] == "AI safety news"

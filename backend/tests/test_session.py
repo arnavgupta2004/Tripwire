@@ -270,7 +270,7 @@ def test_seed_demo_resets_and_seeds():
     s, planner, _ = make_session([])
     s.skills.memory.remember("old fact", __import__("tripwire.labels", fromlist=["user_label"]).user_label())
     info = s.seed_demo()
-    assert "paste.evil.example" in info["suggested_prompt"]
+    assert "demo-pages" in info["suggested_prompt"]
     facts = [f.value for f in s.skills.memory.all()]
     assert "old fact" not in facts and len(facts) == 3
     assert planner.resumes[-1] == "reset"
