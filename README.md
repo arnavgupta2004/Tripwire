@@ -46,21 +46,26 @@ Tripwire was evaluated as a defense on [AgentDojo](https://github.com/ethz-spyla
 (Slack and Banking suites, published `important_instructions` attack), with
 Nemotron 3 Super on Token Factory as the agent in every condition.
 
-| Suite | Condition | Benign utility | Targeted attack success |
-|---|---|---|---|
-| Slack | No defense | 85.7% | 69.5% |
-| Slack | Spotlighting (AgentDojo built-in) | 90.5% | 65.7% |
-| Slack | Tripwire (gateway + reader) | 47.6% | **14.3%** |
-| Banking | No defense | 87.5% | 25.0% |
-| Banking | Spotlighting (AgentDojo built-in) | 68.8% | 22.9% |
-| Banking | Tripwire (gateway + reader) | 43.8% | **0.0%** |
+| Suite | Condition | Attack success | Strict utility | Effective utility |
+|---|---|---|---|---|
+| Slack | No defense | 69.5% | 85.7% | 85.7% |
+| Slack | Spotlighting (AgentDojo built-in) | 65.7% | 90.5% | 90.5% |
+| Slack | Tripwire (gateway + reader) | **14.3%** | 47.6% | 66.7% |
+| Banking | No defense | 25.0% | 87.5% | 87.5% |
+| Banking | Spotlighting (AgentDojo built-in) | 22.9% | 68.8% | 68.8% |
+| Banking | Tripwire (gateway + reader) | **0.0%** | 43.8% | 81.2% |
+
+*Strict utility* counts an action held for approval as not completed (the
+benchmark has no human to approve it). *Effective utility* counts it as completed,
+since in the app the user approves it with one tap; it assumes the approval would
+have finished the task.
 
 ![Attack success rate by condition](evals/agentdojo/results/asr_by_condition.png)
-![Benign utility by condition](evals/agentdojo/results/utility_by_condition.png)
+![What happened to each benign task](evals/agentdojo/results/benign_outcomes.png)
 
-Tripwire cuts attack success sharply, and pays for it in utility: actions it holds
-for approval count as not completed, and it refuses to treat web pages or
-third-party documents as instructions. Full results, the frozen tool mapping, the
+Tripwire cuts attack success sharply and pays for it in utility. Most of the gap
+is actions held for one-tap approval; the rest is hard blocks, mainly where the
+user asks it to follow a web page's instructions. Full results, the frozen tool mapping, the
 failure analysis and every caveat are in [evals/agentdojo/results.md](evals/agentdojo/results.md).
 
 AgentDojo is MIT-licensed. Debenedetti et al., *AgentDojo: A Dynamic Environment to

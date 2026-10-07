@@ -177,9 +177,100 @@ def table(summary: dict) -> str:
     return "\n".join(lines)
 
 
+BREAKDOWN_CONDITIONS = [("none", "No defense"), ("spotlighting", "Spotlighting"),
+                        ("tripwire_gw", "Tripwire (gateway)"), ("tripwire_full", "Tripwire (full)")]
+CATEGORIES = ["completed", "held", "hard_blocked", "reader_dropped", "other"]
+CATEGORY_LABELS = {"completed": "Completed", "held": "Held for approval", "hard_blocked": "Hard blocked",
+                   "reader_dropped": "Reader dropped detail", "other": "Other"}
+
+
+def classify(r: dict, gw_completed: set[str], condition: str) -> str:
+    """Why a benign run did or didn't complete. Order matters: a run with any hard
+    block can't be rescued by approving a held action."""
+    if r["utility"]:
+        return "completed"
+    verdicts = [d["verdict"] for d in r.get("decisions", [])]
+    if "BLOCK" in verdicts:
+        return "hard_blocked"
+    if "NEEDS_APPROVAL" in verdicts:
+        return "held"
+    if condition == "tripwire_full" and r["user_task"] in gw_completed:
+        return "reader_dropped"
+    return "other"
+
+
+def breakdown() -> dict:
+    """Benign-run outcome categories per suite and condition, plus effective utility."""
+    out: dict = {}
+    for suite in SUITES:
+        gw_completed = {r["user_task"] for r in load(suite, "tripwire_gw", "utility") if r["utility"]}
+        out[suite] = {}
+        for condition, label in BREAKDOWN_CONDITIONS:
+            rows = load(suite, condition, "utility")
+            if not rows:
+                continue
+            counts = Counter(classify(r, gw_completed, condition) for r in rows)
+            examples: dict[str, list[str]] = defaultdict(list)
+            for r in rows:
+                examples[classify(r, gw_completed, condition)].append(r["user_task"])
+            n = len(rows)
+            out[suite][condition] = {
+                "label": label, "n": n, **{c: counts.get(c, 0) for c in CATEGORIES},
+                "strict_utility": counts.get("completed", 0) / n,
+                "effective_utility": (counts.get("completed", 0) + counts.get("held", 0)) / n,
+                "tasks": {c: sorted(v, key=lambda t: int(t.split("_")[-1])) for c, v in examples.items()
+                          if c != "completed"},
+            }
+    return out
+
+
+def breakdown_table(b: dict) -> str:
+    lines = ["| Suite | Condition | Completed | Held for approval | Hard blocked | Reader dropped detail | Other "
+             "| Strict utility | Effective utility |", "|---|---|---|---|---|---|---|---|---|"]
+    for suite, rows in b.items():
+        for e in rows.values():
+            lines.append(f"| {suite.title()} | {e['label']} | {e['completed']} | {e['held']} | {e['hard_blocked']} | "
+                         f"{e['reader_dropped']} | {e['other']} | {pct(e['strict_utility'])} | "
+                         f"{pct(e['effective_utility'])} |")
+    return "\n".join(lines)
+
+
+def breakdown_chart(b: dict) -> None:
+    colors = {"completed": "#3b8f5a", "held": "#e3b341", "hard_blocked": "#c94c4c",
+              "reader_dropped": "#7d68b5", "other": "#9aa0a6"}
+    bars = [(f"{suite.title()}\n{e['label']}", e) for suite, rows in b.items() for e in rows.values()]
+    fig, ax = plt.subplots(figsize=(11, 4.6))
+    xs = range(len(bars))
+    bottoms = [0.0] * len(bars)
+    for cat in CATEGORIES:
+        vals = [100 * e[cat] / e["n"] for _, e in bars]
+        ax.bar(xs, vals, 0.62, bottom=bottoms, color=colors[cat], label=CATEGORY_LABELS[cat])
+        for x, v, b0 in zip(xs, vals, bottoms):
+            if v >= 6:
+                ax.text(x, b0 + v / 2, f"{v:.0f}%", ha="center", va="center", fontsize=7, color="white")
+        bottoms = [b0 + v for b0, v in zip(bottoms, vals)]
+    ax.set_xticks(list(xs))
+    ax.set_xticklabels([name for name, _ in bars], fontsize=8)
+    ax.set_ylim(0, 100)
+    ax.set_ylabel("% of benign tasks")
+    ax.set_title("What happened to each benign task")
+    ax.legend(frameon=False, fontsize=8, ncol=5, loc="upper center", bbox_to_anchor=(0.5, -0.16))
+    ax.spines[["top", "right"]].set_visible(False)
+    fig.tight_layout()
+    fig.savefig(OUT / "benign_outcomes.png", dpi=160)
+    plt.close(fig)
+
+
 def main() -> None:
     summary = summarize()
     (OUT / "results.json").write_text(json.dumps(summary, indent=2))
+    b = breakdown()
+    (OUT / "benign_breakdown.json").write_text(json.dumps(b, indent=2))
+    breakdown_chart(b)
+    print(breakdown_table(b))
+    for suite, rows in b.items():
+        for cond, e in rows.items():
+            print(suite, cond, e["tasks"])
     chart(summary, "asr", "Targeted attack success rate (lower is better)", "asr_by_condition.png")
     chart(summary, "benign_utility", "Benign utility (higher is better)", "utility_by_condition.png")
     chart(summary, "utility_under_attack", "Utility under attack (higher is better)", "utility_under_attack.png")
