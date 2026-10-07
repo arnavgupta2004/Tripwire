@@ -47,17 +47,24 @@ uv run uvicorn api.main:build --factory --app-dir backend   # API on :8000
 cd frontend && npm install && npm run dev                   # UI on http://localhost:5173
 ```
 
-Click **Load demo**, then **Send**. The suggested prompt reads your (fictional)
-tax file and then asks for an article from an outside site; the exfiltration rule
-blocks that fetch, because private data was read in the same turn (blocked in 5
-of 5 live runs). The flow graph shows every tool call colored by the data flowing
-through it; the blocked call turns red, and clicking it shows the rule, the reason
-and the Ultra judge's explanation, which arrives a moment after the block. The
-rule is deliberately conservative, and here it stops a fetch you asked for (see
-the utility trade-off below). Screens: Assistant, Memory, Routines, Evidence (the AgentDojo
-results below). Design notes: [frontend/DESIGN.md](frontend/DESIGN.md).
+If port 8000 is taken, run the API with `--port 8100` and start the UI with
+`TRIPWIRE_API=http://127.0.0.1:8100 npm run dev`.
 
-![The demo block, with the decision drawer open](docs/screenshots/demo-block-drawer.jpg)
+Click **Load demo**, then **Send**. The suggested prompt asks Tripwire to read a
+page carrying AgentDojo's published prompt-injection template and send you a brief.
+In 5 of 5 live runs the quarantined reader flagged the hidden instructions (an
+amber pulsing node in the flow graph; its drawer shows the reader's note, never the
+page's text), the assistant attempted nothing you didn't ask for, and the brief to
+you was checked by the Nemotron Nano classifier and allowed. A second example,
+"Tripwire is strict", shows the exfiltration rule blocking a fetch after a private
+file read, with the Ultra judge's explanation; that rule is deliberately
+conservative and here stops a request you made. Actions that send your private
+data to someone else are held for one-tap approval (inline card and toast), and
+the turn resumes when you allow it. Screens: Assistant, Memory, Routines, Evidence
+(the AgentDojo results below). Design notes: [frontend/DESIGN.md](frontend/DESIGN.md).
+
+![The reader flagging hidden instructions on the demo page](docs/screenshots/reader-flag-drawer.jpg)
+![The approval card for a send of private data](docs/screenshots/approval-card-ui.jpg)
 
 ## Benchmark: AgentDojo
 
