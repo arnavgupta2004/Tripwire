@@ -27,4 +27,5 @@ def build_session(settings: Settings, *, shield: bool = True, max_steps: int | N
     explainer = AsyncExplainer(judge, bus) if explain_blocks else None
     gateway = Gateway(skills.registry, engine, NemotronClassifier(router), judge, bus, explainer)
     planner = Planner(router, gateway, settings, shield=shield, max_steps=max_steps)
-    return Session(settings, bus, router, gateway, skills, planner, rules_store=rules_store)
+    return Session(settings, bus, router, gateway, skills, planner, rules_store=rules_store,
+                   approval_timeout=settings.approval_timeout)

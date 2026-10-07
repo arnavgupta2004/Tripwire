@@ -44,6 +44,7 @@ class Settings:
     planner_max_steps: int = 8
     planner_tool_mode: str = "native"  # native | json
     context_turns: int = 8  # how many past turns stay in context (and keep their taint)
+    approval_timeout: float = 300.0  # seconds a paused turn waits for an answer before denying
 
     @classmethod
     def from_env(cls, env_file: Path | None = REPO_ROOT / ".env") -> "Settings":
@@ -75,6 +76,7 @@ class Settings:
             planner_max_steps=int(e("PLANNER_MAX_STEPS") or 8),
             planner_tool_mode=(e("PLANNER_TOOL_MODE") or "native").strip().lower(),
             context_turns=int(e("PLANNER_CONTEXT_TURNS") or 8),
+            approval_timeout=float(e("APPROVAL_TIMEOUT_S") or 300),
         )
 
     @property
