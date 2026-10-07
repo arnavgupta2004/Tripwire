@@ -40,6 +40,10 @@ class ModelError(RuntimeError):
     """A model call failed after retries, or the tier isn't configured."""
 
 
+class SpendCapReached(ModelError):
+    """The public demo's daily spend cap is used up; no model call was made."""
+
+
 @dataclass(frozen=True)
 class ModelCallEvent:
     tier: str
@@ -130,6 +134,7 @@ class ModelRouter:
         max_retries: int = 3,
         backoff_base: float = 0.5,
         sleep: Callable[[float], None] = time.sleep,
+        guard: Any = None,
     ) -> None:
         self.settings = settings
         self.bus = bus or EventBus()
@@ -140,6 +145,8 @@ class ModelRouter:
         self.backoff_base = backoff_base
         self.sleep = sleep
         self.records: list[ModelCallEvent] = []
+        # Optional SpendGuard shared across visitors: checked before, charged after, every call.
+        self.guard = guard
 
     def model_for(self, tier: str) -> str:
         model = self.settings.models.get(tier)
@@ -166,6 +173,8 @@ class ModelRouter:
         timeout: float | None = None,
     ) -> ChatResult:
         model = self.model_for(tier)
+        if self.guard is not None:
+            self.guard.check()
         kwargs: dict[str, Any] = {
             "model": model,
             "messages": list(messages),
@@ -204,6 +213,8 @@ class ModelRouter:
                 raise ModelError(f"{tier} call rejected: {exc}") from exc
 
         record = self._record(tier, model, purpose, resp, start, attempts, reasoning)
+        if self.guard is not None:
+            self.guard.add(record.cost_usd or 0.0)
         message = resp.choices[0].message
         # Token Factory returns reasoning as `reasoning_content` (Super, Ultra) or `reasoning` (Nano).
         extra = getattr(message, "model_extra", None) or {}

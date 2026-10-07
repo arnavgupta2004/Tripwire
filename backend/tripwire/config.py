@@ -45,6 +45,12 @@ class Settings:
     planner_tool_mode: str = "native"  # native | json
     context_turns: int = 8  # how many past turns stay in context (and keep their taint)
     approval_timeout: float = 300.0  # seconds a paused turn waits for an answer before denying
+    # Public demo: per-visitor sessions, forced DEMO_MODE, no Telegram, rate limits, spend cap.
+    public_demo: bool = False
+    daily_spend_cap_usd: float = 2.0
+    chat_rate_per_visitor: int = 8  # turns per 10 minutes per visitor
+    chat_rate_global: int = 60  # turns per 10 minutes across all visitors
+    max_visitors: int = 200
 
     @classmethod
     def from_env(cls, env_file: Path | None = REPO_ROOT / ".env") -> "Settings":
@@ -64,7 +70,7 @@ class Settings:
             telegram_bot_token=(e("TELEGRAM_BOT_TOKEN") or "").strip(),
             telegram_chat_id=(e("TELEGRAM_CHAT_ID") or "").strip(),
             telegram_demo_attacker_chat_id=(e("TELEGRAM_DEMO_ATTACKER_CHAT_ID") or "").strip(),
-            demo_mode=_bool(e("DEMO_MODE")),
+            demo_mode=_bool(e("DEMO_MODE")) or _bool(e("PUBLIC_DEMO")),  # a public demo is always DEMO_MODE
             files_dir=_path(e("DEMO_FILES_DIR"), REPO_ROOT / "demo" / "private"),
             notes_dir=_path(e("NOTES_DIR"), REPO_ROOT / "data" / "notes"),
             data_dir=_path(e("DATA_DIR"), REPO_ROOT / "data"),
@@ -77,6 +83,11 @@ class Settings:
             planner_tool_mode=(e("PLANNER_TOOL_MODE") or "native").strip().lower(),
             context_turns=int(e("PLANNER_CONTEXT_TURNS") or 8),
             approval_timeout=float(e("APPROVAL_TIMEOUT_S") or 300),
+            public_demo=_bool(e("PUBLIC_DEMO")),
+            daily_spend_cap_usd=float(e("DAILY_SPEND_CAP_USD") or 2.0),
+            chat_rate_per_visitor=int(e("CHAT_RATE_PER_VISITOR") or 8),
+            chat_rate_global=int(e("CHAT_RATE_GLOBAL") or 60),
+            max_visitors=int(e("MAX_VISITORS") or 200),
         )
 
     @property

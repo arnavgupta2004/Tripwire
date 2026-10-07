@@ -15,13 +15,13 @@ from tripwire.session import Session
 
 
 def build_session(settings: Settings, *, shield: bool = True, max_steps: int | None = None,
-                  explain_blocks: bool = True, **skill_overrides) -> Session:
+                  explain_blocks: bool = True, guard=None, rules_path=None, **skill_overrides) -> Session:
     bus = EventBus()
-    router = ModelRouter(settings, bus)
+    router = ModelRouter(settings, bus, guard=guard)
     skills = build_skills(settings, router, bus, **skill_overrides)
     # Protected: hardened prompt + quarantined reader + gateway. Naive agent: all three off.
     skills.set_quarantine(shield)
-    rules_store = UserRuleStore()
+    rules_store = UserRuleStore(rules_path) if rules_path is not None else UserRuleStore()
     engine = PolicyEngine.load(rules_store.load())
     judge = NemotronJudge(router)
     explainer = AsyncExplainer(judge, bus) if explain_blocks else None
