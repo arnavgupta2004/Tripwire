@@ -4,6 +4,7 @@ The approval card mirrors what the UI shows. Whichever channel answers first win
 (the broker enforces it), so a tap here and a click in the web UI can't both apply.
 """
 
+import html
 import logging
 import threading
 from collections.abc import Callable
@@ -22,16 +23,22 @@ Sender = Callable[[str, str, list[tuple[str, str]] | None], None]
 
 
 def approval_card(info: ApprovalInfo) -> tuple[str, list[tuple[str, str]]]:
-    """The message text and inline buttons for a pending approval."""
+    """The message text (Telegram HTML, escaped) and inline buttons for a pending approval."""
+    e = _esc
     lines = [
-        "⚠️ *Tripwire paused an action*",
-        f"*What:* `{info.tool}` {_short(info.args)}",
-        f"*Why:* {info.explanation or info.reason}",
+        "⚠️ <b>Tripwire paused an action</b>",
+        f"<b>What:</b> <code>{e(info.tool)}</code> {e(_short(info.args))}",
+        f"<b>Why:</b> {e(info.explanation or info.reason)}",
     ]
     if info.evidence:
-        lines.append(f"*Source:* {info.evidence}")
+        lines.append(f"<b>Source:</b> {e(info.evidence)}")
     buttons = [(label, f"ap:{info.id}:{answer}") for label, answer in BUTTONS]
     return "\n".join(lines), buttons
+
+
+def _esc(text: str) -> str:
+    """Escape for Telegram HTML: only <, > and & are special."""
+    return html.escape(text, quote=False)
 
 
 def _short(args: dict[str, Any], limit: int = 120) -> str:
@@ -76,7 +83,7 @@ class TripwireBot:
             self.sender(str(chat_id), "Sorry, this assistant only talks to its owner.", None)
             return
         text = text.strip()
-        if text in ("/start", "/help"):
+        if text.startswith("/start") or text == "/help":
             self.sender(self.owner, "Tripwire online. Ask me to research, read your files, or brief you.", None)
             return
         if text == "/memory":
@@ -109,15 +116,16 @@ class TripwireBot:
         return ANSWER_REPLY[answer] if won else "Already answered elsewhere."
 
     def memory_listing(self) -> str:
+        e = _esc
         facts = self.session.skills.memory.all()
-        lines = ["*What I remember:*"] if facts else ["I don't have anything saved yet."]
+        lines = ["<b>What I remember:</b>"] if facts else ["I don't have anything saved yet."]
         for f in facts:
-            mark = "" if f.label.is_trusted else "  ⚠️ _untrusted — info only_"
-            lines.append(f"• {f.value}{mark}")
+            mark = "" if f.label.is_trusted else "  ⚠️ <i>untrusted — info only</i>"
+            lines.append(f"• {e(f.value)}{mark}")
         tasks = self.session.skills.memory.tasks()
         if tasks:
-            lines.append("\n*Daily briefs:*")
-            lines += [f"• {t.schedule} — {t.topic}" for t in tasks]
+            lines.append("\n<b>Daily briefs:</b>")
+            lines += [f"• {e(t.schedule)} — {e(t.topic)}" for t in tasks]
         return "\n".join(lines)
 
     def _run_async(self, work: Callable[[], Any]) -> None:
@@ -128,7 +136,7 @@ class TripwireBot:
                 outcome = work()
                 reply = getattr(outcome, "reply", None)
                 if reply:
-                    self.sender(self.owner, reply, None)
+                    self.sender(self.owner, _esc(reply), None)
             except Exception:
                 log.exception("telegram turn failed")
                 self.sender(self.owner, "Something went wrong handling that. Please try again.", None)
@@ -154,7 +162,7 @@ def build_telegram(session: Session):  # pragma: no cover - requires a bot token
         if buttons:
             markup = InlineKeyboardMarkup([[InlineKeyboardButton(label, callback_data=data)] for label, data in buttons])
         loop = loop_box.get("loop")
-        coro = app.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="Markdown")
+        coro = app.bot.send_message(chat_id=chat_id, text=text, reply_markup=markup, parse_mode="HTML")
         if loop is not None:
             asyncio.run_coroutine_threadsafe(coro, loop)
 
@@ -172,8 +180,24 @@ def build_telegram(session: Session):  # pragma: no cover - requires a bot token
         bot.start()
 
     app.post_init = post_init
-    app.add_handler(CommandHandler(["start", "help", "memory", "brief_now", "brief", "new"],
-                                   lambda u, c: on_message(u, c)))
+    app.add_handler(CommandHandler(["start", "help", "memory", "brief_now", "brief", "new"], on_message))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
     app.add_handler(CallbackQueryHandler(on_button))
     return app, bot
+
+
+def start_in_background(session: Session) -> threading.Thread:  # pragma: no cover - needs a bot token and network
+    """Run the Telegram bot (long polling) on its own thread and event loop, next to the API."""
+    import asyncio
+
+    app, _bot = build_telegram(session)
+
+    def run() -> None:
+        asyncio.set_event_loop(asyncio.new_event_loop())
+        # stop_signals=None: signal handlers can only be installed on the main thread.
+        app.run_polling(stop_signals=None, close_loop=False, drop_pending_updates=False)
+
+    thread = threading.Thread(target=run, name="tripwire-telegram", daemon=True)
+    thread.start()
+    log.info("Telegram bot polling started")
+    return thread

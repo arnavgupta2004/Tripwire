@@ -140,3 +140,12 @@ def test_brief_now_runs():
     session.skills.memory.add_task("daily_brief", "markets", "08:00")
     bot.handle_text(OWNER, "/brief_now")
     assert wait_for(lambda: "Your brief: ..." in sender.texts(OWNER))
+
+
+def test_card_escapes_html_and_keeps_underscores():
+    info = ApprovalInfo("ap_9", "send_telegram", {"chat_id": "777", "text": "a <b> & tax_2025.txt"}, "r",
+                        "Sends <private> data", None, "R2.private_outbound", "api")
+    text, _ = approval_card(info)
+    assert "&lt;b&gt;" in text and "&amp;" in text and "&lt;private&gt;" in text
+    assert "chat_id" in text and "tax_2025.txt" in text  # underscores are safe in HTML mode
+    assert text.startswith("⚠️ <b>Tripwire paused an action</b>")

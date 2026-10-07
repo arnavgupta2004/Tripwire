@@ -200,9 +200,21 @@ def create_app(session: Session) -> FastAPI:
 
 def build() -> FastAPI:
     """Entrypoint for `uvicorn api.main:build --factory`."""
+    import logging
+    import os
+
     from tripwire.app import build_session
     from tripwire.config import Settings
 
     session = build_session(Settings.from_env())
     session.start_scheduler()
+    settings = session.settings
+    # Telegram as an interface (chat + approval cards). TELEGRAM_BOT=off disables it.
+    if settings.telegram_bot_token and settings.telegram_chat_id and os.environ.get("TELEGRAM_BOT", "on") != "off":
+        try:
+            from api.telegram import start_in_background
+
+            start_in_background(session)
+        except Exception:
+            logging.getLogger(__name__).exception("could not start the Telegram bot")
     return create_app(session)
