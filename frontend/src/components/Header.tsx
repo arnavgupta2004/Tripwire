@@ -63,8 +63,8 @@ export function Header({ screen, onNavigate }: { screen: Screen; onNavigate: (s:
         </div>
         <nav className="flex items-center gap-1 overflow-x-auto">
           {TABS.map((t) => (
-            <button key={t.id} onClick={() => onNavigate(t.id)}
-                    className={cx("whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition",
+            <button key={t.id} onClick={() => onNavigate(t.id)} aria-current={screen === t.id ? "page" : undefined}
+                    className={cx("whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium",
                       screen === t.id ? "bg-brand-soft text-brand" : "text-ink-soft hover:bg-surface-sunken")}>
               {t.label}
             </button>
