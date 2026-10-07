@@ -1,7 +1,7 @@
 import pytest
 
 from fakes.openai_client import FakeClient, completion
-from tripwire.guard import RateLimiter, SpendGuard
+from tripwire.guard import RateLimiter, SpendGuard, SpendStateError
 from tripwire.models import SpendCapReached
 
 
@@ -32,6 +32,33 @@ def test_spend_guard_persists_and_resets_daily(tmp_path):
     assert SpendGuard(1.0, path, clock=clock).spent_today == pytest.approx(0.4)  # survives restart
     clock.t += 86_400  # next UTC day
     assert SpendGuard(1.0, path, clock=clock).spent_today == 0.0
+
+
+def test_lifetime_cap_spans_days_and_restarts(tmp_path):
+    clock = Clock()
+    path = tmp_path / "spend.json"
+    SpendGuard(1.0, path, clock=clock, lifetime_cap_usd=1.5).add(0.9)
+    clock.t += 86_400
+    g = SpendGuard(1.0, path, clock=clock, lifetime_cap_usd=1.5)  # new day, after a restart
+    assert g.spent_today == 0.0 and g.spent_lifetime == pytest.approx(0.9)
+    g.add(0.6)
+    assert g.lifetime_exhausted and g.spent_today < 1.0
+    with pytest.raises(SpendCapReached, match="lifetime"):
+        g.check()
+    clock.t += 86_400
+    assert SpendGuard(1.0, path, clock=clock, lifetime_cap_usd=1.5).exhausted  # never resets
+    assert g.status()["remaining_usd"] == 0.0
+
+
+def test_spend_state_that_cannot_persist_fails_loudly(tmp_path):
+    bad = tmp_path / "spend.json"
+    bad.write_text("not json")
+    with pytest.raises(SpendStateError):
+        SpendGuard(1.0, bad)
+    blocked = tmp_path / "file"
+    blocked.write_text("")
+    with pytest.raises(SpendStateError):
+        SpendGuard(1.0, blocked / "spend.json")  # parent is a file: not writable
 
 
 def test_router_charges_and_respects_guard(make_router, tmp_path):

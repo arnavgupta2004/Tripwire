@@ -24,7 +24,8 @@ def build() -> FastAPI:
         from api.visitors import VisitorSessions, public_factory
         from tripwire.guard import SpendGuard
 
-        guard = SpendGuard(settings.daily_spend_cap_usd, settings.data_dir / "spend.json")
+        guard = SpendGuard(settings.daily_spend_cap_usd, settings.data_dir / "spend.json",
+                           lifetime_cap_usd=settings.lifetime_spend_cap_usd)
         sessions = VisitorSessions(public_factory(settings, guard), max_sessions=settings.max_visitors)
         api = create_app(sessions, settings=settings, guard=guard)
     else:

@@ -52,6 +52,9 @@ def _step_dict(step: Any) -> dict[str, Any]:
 CAP_MESSAGE = ("Tripwire's public demo has used today's model budget, so live chat is paused until "
                "tomorrow (UTC). The Evidence page still works, and you can run Tripwire locally with your "
                "own Token Factory key (see the README).")
+LIFETIME_CAP_MESSAGE = ("Tripwire's public demo has used its total model budget, so live chat is now closed. "
+                        "The Evidence page still works, and you can run Tripwire locally with your own "
+                        "Token Factory key (see the README).")
 
 
 def _rate_message(wait_s: float) -> str:
@@ -102,10 +105,13 @@ def create_app(provider: "Session | VisitorSessions", *, settings: Any = None, g
     def invalid_visitor(_request: Request, exc: InvalidVisitor) -> JSONResponse:
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
 
+    def cap_message() -> str:
+        return LIFETIME_CAP_MESSAGE if guard is not None and guard.lifetime_exhausted else CAP_MESSAGE
+
     def limited(conn: Any) -> str | None:
         """A friendly message if this request must not reach the models, else None."""
         if guard is not None and guard.exhausted:
-            return CAP_MESSAGE
+            return cap_message()
         if public:
             key = visitor_of(conn)
             if not per_visitor.allow(key):
@@ -145,7 +151,7 @@ def create_app(provider: "Session | VisitorSessions", *, settings: Any = None, g
                 try:
                     box["outcome"] = session.chat(body.message, source="api")
                 except SpendCapReached:
-                    box["limited"] = CAP_MESSAGE
+                    box["limited"] = cap_message()
                 except Exception as exc:  # pragma: no cover - surfaced to the client
                     box["error"] = str(exc)
                 finally:
@@ -260,7 +266,7 @@ def create_app(provider: "Session | VisitorSessions", *, settings: Any = None, g
         try:
             outcome = session.run_brief(body.topic)
         except SpendCapReached:
-            return {"ok": False, "reply": CAP_MESSAGE, "limited": True}
+            return {"ok": False, "reply": cap_message(), "limited": True}
         return {"ok": True, "reply": outcome.reply}
 
     @app.post("/demo/load")
