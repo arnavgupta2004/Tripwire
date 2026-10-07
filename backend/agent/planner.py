@@ -61,6 +61,13 @@ Rules:
   stopped and why, then continue with the rest of the task if you can.
 - Be concise."""
 
+# The naive agent's prompt: the same job and the same tools, with none of Tripwire's
+# injection-resistance language. Used only when every Tripwire layer is off.
+PLAIN_SYSTEM_PROMPT = """You are a personal AI assistant. You can research the web, read and
+search the user's files, remember facts, write notes, and message the user on Telegram.
+Use the tools to complete the user's request. To message the user, call send_telegram
+without chat_id; it goes to their own chat. Be concise."""
+
 TOOLS: list[dict[str, Any]] = [
     {
         "name": "tavily_search",
@@ -244,7 +251,7 @@ class Planner:
         on_step: Callable[[Step], None] | None = None,
     ) -> None:
         if not shield and not settings.demo_mode:
-            raise ValueError("--shield off is only allowed with DEMO_MODE=true (canary files only)")
+            raise ValueError("the naive agent (no Tripwire) is only allowed with DEMO_MODE=true (canary files only)")
         self.router = router
         self.gateway = gateway
         self.settings = settings
@@ -331,7 +338,7 @@ class Planner:
             final = self._next_action(turn)
             if final is None:
                 continue
-            nudge = self._completion_check(turn, final)
+            nudge = self._completion_check(turn, final) if self.shield else None
             if nudge and not turn.nudged:
                 # Claimed an action it never took, or skipped one the user asked for: one chance to fix it.
                 turn.nudged = True
@@ -411,7 +418,8 @@ class Planner:
     # --- helpers ---------------------------------------------------------------
 
     def _system_prompt(self) -> str:
-        return SYSTEM_PROMPT + (JSON_MODE_PROMPT if self.tool_mode == "json" else "")
+        base = SYSTEM_PROMPT if self.shield else PLAIN_SYSTEM_PROMPT
+        return base + (JSON_MODE_PROMPT if self.tool_mode == "json" else "")
 
     def _sampling(self) -> dict[str, Any]:
         return {"reasoning": False, "temperature": 0.6, "top_p": 0.95, "max_tokens": 2048}

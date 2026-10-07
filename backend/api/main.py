@@ -46,7 +46,7 @@ def create_app(session: Session) -> FastAPI:
 
     @app.get("/health")
     def health() -> dict[str, Any]:
-        return {"ok": True, "shield": session.shield, "demo_mode": session.settings.demo_mode}
+        return {"ok": True, "shield": session.shield, "mode": session.mode, "demo_mode": session.settings.demo_mode}
 
     @app.post("/chat")
     def chat(body: ChatIn) -> StreamingResponse:
@@ -141,7 +141,7 @@ def create_app(session: Session) -> FastAPI:
             session.set_shield(body.on)
         except ValueError as exc:
             return {"ok": False, "error": str(exc)}
-        return {"ok": True, "shield": session.shield}
+        return {"ok": True, "shield": session.shield, "mode": session.mode}
 
     @app.post("/thread/new")
     def thread_new() -> dict[str, Any]:

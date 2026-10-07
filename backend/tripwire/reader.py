@@ -170,7 +170,7 @@ def chunk_text(text: str, size: int = CHUNK_CHARS, max_chunks: int = MAX_CHUNKS)
 
 
 class PassthroughReader:
-    """Shield OFF: hands raw page text straight to the planner, like a naive agent."""
+    """Naive agent: hands raw page text straight to the planner."""
 
     quarantined = False
     MAX_CHARS = 12_000

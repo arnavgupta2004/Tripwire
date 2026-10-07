@@ -72,7 +72,7 @@ def test_usage_endpoint():
 
 def test_shield_toggle_and_demo_guard():
     session, client = build([])
-    assert client.post("/shield", json={"on": False}).json() == {"ok": True, "shield": False}
+    assert client.post("/shield", json={"on": False}).json() == {"ok": True, "shield": False, "mode": "naive"}
     assert session.planner.shield is False
     # With demo mode off, turning the shield off is refused.
     from dataclasses import replace

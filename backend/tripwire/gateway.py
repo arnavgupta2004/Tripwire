@@ -159,8 +159,9 @@ class Gateway:
         return self._run_with(call, ctx, decision)
 
     def run_ungated(self, call: ToolCall, ctx: TurnContext) -> CallResult:
-        """Shield OFF: execute without policy checks (demo only). Still labeled and logged."""
-        decision = Decision(Verdict.ALLOW, "SHIELD_OFF", "Tripwire is off; the call ran without any checks.")
+        """Naive agent (no Tripwire): execute without policy checks (demo only). Still labeled
+        and logged, so the demo can show what would have been stopped."""
+        decision = Decision(Verdict.ALLOW, "NAIVE.no_tripwire", "Naive agent: no Tripwire, so the call ran unchecked.")
         return self._run_with(call, ctx, decision)
 
     def _run_with(self, call: ToolCall, ctx: TurnContext, decision: Decision) -> CallResult:

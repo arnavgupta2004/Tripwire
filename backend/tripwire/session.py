@@ -202,10 +202,16 @@ class Session:
             self.planner.reset()
 
     def set_shield(self, on: bool) -> None:
+        """on = Protected by Tripwire; off = naive agent (plain prompt, no reader, no gateway)."""
         if not on and not self.settings.demo_mode:
-            raise ValueError("shield off requires DEMO_MODE=true")
+            raise ValueError("the naive agent requires DEMO_MODE=true")
         with self._lock:
             self.planner.shield = on
+            self.skills.set_quarantine(on)
+
+    @property
+    def mode(self) -> str:
+        return "protected" if self.planner.shield else "naive"
 
     @property
     def shield(self) -> bool:

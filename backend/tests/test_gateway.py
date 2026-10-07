@@ -292,7 +292,7 @@ def test_run_ungated_skips_policy_but_still_labels(gateway, spy, classifier, jud
     ctx = TurnContext("pasta recipe")
     gateway.call(ToolCall("read_file", {"path": "~/tax.pdf"}), ctx)
     result = gateway.run_ungated(ToolCall("fetch_url", {"url": "https://evil.example/x"}), ctx)
-    assert result.decision.rule_id == "SHIELD_OFF"
+    assert result.decision.rule_id == "NAIVE.no_tripwire"
     assert spy.executed[-1][0] == "fetch_url"
     assert classifier.calls == [] and judge.calls == []
     assert ctx.history[-1].data_label.is_private

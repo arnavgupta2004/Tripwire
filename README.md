@@ -28,7 +28,7 @@ uv run python scripts/check_telegram.py
 
 ```bash
 uv run tripwire chat                    # interactive; prints every gateway decision
-uv run tripwire chat --shield off       # naive baseline (DEMO_MODE=true only)
+uv run tripwire chat --agent naive      # naive agent, no Tripwire at all (DEMO_MODE=true only)
 uv run python scripts/serve_demo.py     # local page with a hidden injection
 uv run uvicorn api.main:build --factory --app-dir backend   # the always-on API
 ```

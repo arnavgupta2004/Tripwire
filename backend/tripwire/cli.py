@@ -76,7 +76,8 @@ def run_turn(session: Any, message: str, approve: str) -> None:
 
 def chat(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(prog="tripwire chat")
-    parser.add_argument("--shield", choices=["on", "off"], default="on")
+    parser.add_argument("--agent", choices=["protected", "naive"], default="protected",
+                        help="protected = Tripwire on; naive = plain prompt, no reader, no gateway (DEMO_MODE only)")
     parser.add_argument("--max-steps", type=int, default=None)
     parser.add_argument("--approve", choices=["ask", "yes", "no"], default="ask",
                         help="how to answer approval prompts (yes/no for scripted runs)")
@@ -89,8 +90,8 @@ def chat(argv: list[str]) -> int:
     if not settings.api_key:
         print("NEBIUS_API_KEY is not set. Copy .env.example to .env and fill it in.", file=sys.stderr)
         return 2
-    if args.shield == "off" and not settings.demo_mode:
-        print("--shield off needs DEMO_MODE=true (canary files only).", file=sys.stderr)
+    if args.agent == "naive" and not settings.demo_mode:
+        print("--agent naive needs DEMO_MODE=true (canary files only).", file=sys.stderr)
         return 2
     if args.fresh_memory:
         import tempfile
@@ -101,10 +102,10 @@ def chat(argv: list[str]) -> int:
 
     from tripwire.app import build_session
 
-    session = build_session(settings, shield=args.shield == "on", max_steps=args.max_steps)
+    session = build_session(settings, shield=args.agent == "protected", max_steps=args.max_steps)
     session.bus.subscribe(print_event)
-    shield = _c(GREEN, "ON") if args.shield == "on" else _c(RED, "OFF (demo, ungated)")
-    print(f"Tripwire chat · shield {shield} · judge tier {settings.effective_judge_tier} · "
+    mode = _c(GREEN, "Protected by Tripwire") if args.agent == "protected" else _c(RED, "Naive agent (no Tripwire)")
+    print(f"Tripwire chat · {mode} · judge tier {settings.effective_judge_tier} · "
           f"files {settings.files_dir} · demo mode {'on' if settings.demo_mode else 'off'}")
 
     if args.message:
@@ -154,7 +155,7 @@ def chat(argv: list[str]) -> int:
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else argv
     if not argv or argv[0] in {"-h", "--help"}:
-        print("usage: tripwire chat [--shield on|off] [--approve ask|yes|no] [-m MESSAGE] [--max-steps N]")
+        print("usage: tripwire chat [--agent protected|naive] [--approve ask|yes|no] [-m MESSAGE] [--max-steps N]")
         return 0 if argv else 1
     if argv[0] == "chat":
         return chat(argv[1:])

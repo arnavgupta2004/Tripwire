@@ -12,7 +12,7 @@ from skills.web import Fetcher
 from tripwire.config import Settings
 from tripwire.events import EventBus
 from tripwire.models import ModelRouter
-from tripwire.reader import QuarantinedReader
+from tripwire.reader import PassthroughReader, QuarantinedReader
 from tripwire.tools import ToolRegistry, build_default_registry
 
 
@@ -26,6 +26,14 @@ class Skills:
     research: Research | None
     fetcher: Fetcher
     reader: QuarantinedReader
+
+    def set_quarantine(self, on: bool) -> None:
+        """Route untrusted web content through the quarantined reader (protected) or hand
+        it to the planner raw (naive agent)."""
+        reader = self.reader if on else PassthroughReader()
+        if self.research is not None:
+            self.research.reader = reader
+        self.fetcher.reader = reader
 
 
 class NotConfigured(RuntimeError):

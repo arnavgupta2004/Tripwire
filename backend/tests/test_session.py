@@ -250,3 +250,12 @@ def test_run_brief_uses_stored_topic():
     outcome = s.run_brief()
     assert outcome.reply == "brief!"
     assert planner._text.startswith("Research markets")
+
+
+def test_switching_to_naive_turns_off_every_layer():
+    s, planner, _ = make_session([])
+    s.set_shield(False)
+    assert s.mode == "naive" and planner.shield is False
+    assert s.skills.fetcher.reader.quarantined is False  # raw page text
+    s.set_shield(True)
+    assert s.mode == "protected" and s.skills.fetcher.reader.quarantined is True

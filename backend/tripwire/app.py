@@ -11,7 +11,6 @@ from tripwire.judge import NemotronJudge
 from tripwire.models import ModelRouter
 from tripwire.policy.engine import PolicyEngine
 from tripwire.policy.user_rules import UserRuleStore
-from tripwire.reader import PassthroughReader
 from tripwire.session import Session
 
 
@@ -19,10 +18,9 @@ def build_session(settings: Settings, *, shield: bool = True, max_steps: int | N
                   explain_blocks: bool = True, **skill_overrides) -> Session:
     bus = EventBus()
     router = ModelRouter(settings, bus)
-    if not shield:
-        # Shield OFF is the naive baseline: no gateway and no quarantined reader.
-        skill_overrides.setdefault("reader", PassthroughReader())
     skills = build_skills(settings, router, bus, **skill_overrides)
+    # Protected: hardened prompt + quarantined reader + gateway. Naive agent: all three off.
+    skills.set_quarantine(shield)
     rules_store = UserRuleStore()
     engine = PolicyEngine.load(rules_store.load())
     judge = NemotronJudge(router)
