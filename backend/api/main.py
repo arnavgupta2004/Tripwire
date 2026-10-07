@@ -30,6 +30,10 @@ class ShieldIn(BaseModel):
     on: bool
 
 
+class RunNowIn(BaseModel):
+    topic: str | None = None
+
+
 def _sse(kind: str, payload: Any) -> str:
     return f"event: {kind}\ndata: {json.dumps(payload, default=str)}\n\n"
 
@@ -167,6 +171,17 @@ def create_app(session: Session) -> FastAPI:
     def thread_new() -> dict[str, Any]:
         session.new_thread()
         return {"ok": True}
+
+    @app.post("/routines/run_now")
+    def run_now(body: RunNowIn) -> dict[str, Any]:
+        outcome = session.run_brief(body.topic)
+        return {"ok": True, "reply": outcome.reply}
+
+    @app.post("/demo/load")
+    def demo_load() -> dict[str, Any]:
+        if not session.settings.demo_mode:
+            return {"ok": False, "error": "demo load is only available in DEMO_MODE"}
+        return {"ok": True, **session.seed_demo()}
 
     return app
 
