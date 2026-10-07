@@ -29,6 +29,7 @@ type Store = State & {
   setShield: (on: boolean) => Promise<string | null>;
   newThread: () => Promise<void>;
   loadDemo: () => Promise<string>;
+  demoExamples: { label: string; prompt: string }[];
   runNow: (topic?: string) => Promise<void>;
   toggleTheme: () => void;
   clearEvents: () => void;
@@ -55,6 +56,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [thinking, setThinking] = useState(false);
   const [wsUp, setWsUp] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme());
+  const [demoExamples, setDemoExamples] = useState<{ label: string; prompt: string }[]>([]);
   const seen = useRef<Set<string>>(new Set());
 
   useEffect(() => applyTheme(theme), [theme]);
@@ -122,6 +124,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const loadDemo = useCallback(async () => {
     const res = await api.loadDemo();
+    setDemoExamples(res.examples || []);
     setMessages([]); setEvents([]); seen.current = new Set();
     await refreshLight();
     return res.suggested_prompt || "";
@@ -133,11 +136,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }, [refreshLight]);
 
   const value = useMemo<Store>(() => ({
-    health, usage, context, events, approvals, messages, thinking, wsUp, theme,
+    health, usage, context, events, approvals, messages, thinking, wsUp, theme, demoExamples,
     send, answer, setShield, newThread, loadDemo, runNow,
     toggleTheme: () => setTheme((t) => (t === "dark" ? "light" : "dark")),
     clearEvents: () => { setEvents([]); seen.current = new Set(); },
-  }), [health, usage, context, events, approvals, messages, thinking, wsUp, theme,
+  }), [health, usage, context, events, approvals, messages, thinking, wsUp, theme, demoExamples,
        send, answer, setShield, newThread, loadDemo, runNow]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

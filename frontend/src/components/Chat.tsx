@@ -5,7 +5,7 @@ import { ContextChips } from "./ContextChips";
 import { ApprovalCard } from "./ApprovalCard";
 
 export function Chat() {
-  const { messages, thinking, approvals, send, loadDemo } = useStore();
+  const { messages, thinking, approvals, send, loadDemo, demoExamples } = useStore();
   const [text, setText] = useState("");
   const [loadingDemo, setLoadingDemo] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -55,6 +55,17 @@ export function Chat() {
             {loadingDemo ? "Loading…" : "Load demo"}
           </Button>
         </div>
+        {demoExamples.length > 0 && messages.length === 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {demoExamples.map((ex) => (
+              <button key={ex.label} type="button" onClick={() => setText(ex.prompt)}
+                      className="rounded-full border border-brand/30 bg-brand-soft px-2.5 py-1 text-xs text-brand
+                                 hover:opacity-80">
+                {ex.label}
+              </button>
+            ))}
+          </div>
+        )}
         <form onSubmit={submit} className="flex items-end gap-2">
           <textarea
             value={text} onChange={(e) => setText(e.target.value)}

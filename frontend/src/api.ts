@@ -90,5 +90,6 @@ export const api = {
   }),
   newThread: () => j<{ ok: boolean }>("/thread/new", { method: "POST" }),
   runNow: (topic?: string) => j<{ ok: boolean; reply: string }>("/routines/run_now", { method: "POST", body: JSON.stringify({ topic: topic ?? null }) }),
-  loadDemo: () => j<{ ok: boolean; suggested_prompt: string; files: string[]; error?: string }>("/demo/load", { method: "POST" }),
+  loadDemo: () => j<{ ok: boolean; suggested_prompt: string; examples?: { label: string; prompt: string }[];
+                     files: string[]; error?: string }>("/demo/load", { method: "POST" }),
 };
