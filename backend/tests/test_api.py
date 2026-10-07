@@ -160,3 +160,15 @@ def _untrusted():
     return web_label("https://evil.example")
 
 
+
+
+def test_context_endpoint():
+    session, client = build([])
+    body = client.get("/session/context").json()
+    assert body == {"private": False, "untrusted": False, "sources": [], "badge": ""}
+
+
+def test_cors_headers_present():
+    _, client = build([])
+    r = client.get("/health", headers={"Origin": "http://localhost:5173"})
+    assert r.headers.get("access-control-allow-origin") == "http://localhost:5173"

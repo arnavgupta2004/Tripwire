@@ -45,6 +45,11 @@ class FakePlanner:
     def reset(self):
         self.resumes.append("reset")
 
+    @property
+    def context_label(self):
+        from tripwire.labels import BOTTOM
+        return BOTTOM
+
 
 def make_session(script, **kw):
     bus = EventBus()

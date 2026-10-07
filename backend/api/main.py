@@ -44,6 +44,16 @@ def create_app(session: Session) -> FastAPI:
     app = FastAPI(title="Tripwire")
     app.state.session = session
 
+    # The frontend dev server (Vite) runs on a different port, so allow local origins.
+    from fastapi.middleware.cors import CORSMiddleware
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origin_regex=r"http://(localhost|127\.0\.0\.1):\d+",
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
     @app.get("/health")
     def health() -> dict[str, Any]:
         return {"ok": True, "shield": session.shield, "mode": session.mode, "demo_mode": session.settings.demo_mode}
@@ -104,6 +114,16 @@ def create_app(session: Session) -> FastAPI:
     @app.get("/session/usage")
     def usage() -> dict[str, Any]:
         return session.router.usage_summary()
+
+    @app.get("/session/context")
+    def context() -> dict[str, Any]:
+        label = session.planner.context_label
+        return {
+            "private": label.is_private,
+            "untrusted": not label.is_trusted,
+            "sources": sorted(label.sources),
+            "badge": label.badge,
+        }
 
     @app.get("/approvals")
     def approvals() -> list[dict[str, Any]]:
