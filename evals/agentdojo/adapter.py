@@ -116,7 +116,7 @@ class TokenFactoryClient:
     - records token usage for cost accounting."""
 
     def __init__(self, settings: Settings) -> None:
-        self._inner = OpenAI(api_key=settings.api_key, base_url=settings.base_url, max_retries=4, timeout=60)
+        self._inner = OpenAI(api_key=settings.api_key, base_url=settings.base_url, max_retries=4, timeout=25)
         self.usage = Usage()
         outer = self
 
