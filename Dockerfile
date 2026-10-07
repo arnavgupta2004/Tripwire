@@ -20,10 +20,12 @@ COPY demo/private/ demo/private/
 COPY demo/injection/ demo/injection/
 COPY --from=frontend /app/frontend/dist frontend/dist
 
-RUN useradd --create-home tripwire && mkdir -p /app/data && chown tripwire /app/data
-USER tripwire
+# /data holds the persisted spend caps; mount a volume there. The entrypoint starts as
+# root only to hand that mount to the app user, then drops privileges.
+RUN useradd --create-home tripwire && mkdir -p /data && chown tripwire /data
+COPY deploy/entrypoint.sh /usr/local/bin/entrypoint.sh
 ENV PATH=/opt/venv/bin:$PATH PYTHONPATH=/app/backend PYTHONUNBUFFERED=1 \
-    PUBLIC_DEMO=true DATA_DIR=/app/data PORT=8000
+    PUBLIC_DEMO=true DATA_DIR=/data PORT=8000
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s CMD python -c "import urllib.request,os; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"PORT\"]}/healthz', timeout=4)"
-CMD ["sh", "-c", "exec uvicorn api.serve:build --factory --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

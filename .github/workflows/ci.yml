@@ -50,12 +50,16 @@ jobs:
         run: docker build -t tripwire:ci .
       - name: Smoke test (no secrets; health only)
         run: |
-          docker run -d --name tw -p 8000:8000 tripwire:ci
+          sudo mkdir -m 755 /tmp/twdata  # root-owned, like a freshly mounted volume
+          docker run -d --name tw -p 8000:8000 -v /tmp/twdata:/data tripwire:ci
           for i in $(seq 30); do curl -sf localhost:8000/healthz && break; sleep 1; done
           curl -sf localhost:8000/healthz | grep -q '"public_demo":true'
           curl -sf localhost:8000/api/health | grep -q '"budget"'
           curl -sf localhost:8000/ | grep -qi '<!doctype html>'
+          test "$(docker exec tw stat -c %U /data/spend.json)" = tripwire  # spend state written by the non-root app user
           docker logs tw
+          docker restart tw && sleep 5
+          curl -sf localhost:8000/healthz  # restarts cleanly on the existing state
       - name: Push to GHCR (main only)
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         run: |
