@@ -118,7 +118,7 @@
       }
     },
     "tripwire_full__strict": {
-      "label": "Tripwire (full, strict)",
+      "label": "Tripwire (full, strict trust)",
       "condition": "tripwire_full",
       "trust": "strict",
       "n_utility": 0,

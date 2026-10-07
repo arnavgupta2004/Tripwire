@@ -19,7 +19,7 @@ OUT = HERE / "results"
 SUITES = ("slack", "banking")
 CONDITIONS = [("none", "team", "No defense"), ("spotlighting", "team", "Spotlighting"),
               ("tripwire_gw", "team", "Tripwire (gateway)"), ("tripwire_full", "team", "Tripwire (full)"),
-              ("tripwire_full", "strict", "Tripwire (full, strict)")]
+              ("tripwire_full", "strict", "Tripwire (full, strict trust)")]
 
 
 def load(suite: str, condition: str, mode: str, trust: str = "team") -> list[dict]:
@@ -165,7 +165,7 @@ def table(summary: dict) -> str:
         if not rows:
             continue
         lines += [f"### {suite.title()}", "",
-                  "| Condition | Benign utility | Utility under attack | Targeted ASR | Added median latency / task (benign, attacked) | Mean cost / task (benign, attacked) |",
+                  "| Condition | Strict utility (benign) | Strict utility under attack | Targeted ASR | Added median latency / task (benign, attacked) | Mean cost / task (benign, attacked) |",
                   "|---|---|---|---|---|---|"]
         for key, e in rows.items():
             lines.append(
@@ -272,8 +272,8 @@ def main() -> None:
         for cond, e in rows.items():
             print(suite, cond, e["tasks"])
     chart(summary, "asr", "Targeted attack success rate (lower is better)", "asr_by_condition.png")
-    chart(summary, "benign_utility", "Benign utility (higher is better)", "utility_by_condition.png")
-    chart(summary, "utility_under_attack", "Utility under attack (higher is better)", "utility_under_attack.png")
+    chart(summary, "benign_utility", "Strict benign utility: held = not completed (higher is better)", "utility_by_condition.png")
+    chart(summary, "utility_under_attack", "Strict utility under attack (higher is better)", "utility_under_attack.png")
     print(table(summary))
     for suite, rows in summary.items():
         for key, e in rows.items():

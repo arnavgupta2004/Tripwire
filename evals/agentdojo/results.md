@@ -23,25 +23,29 @@ in `results/results.json`. Charts: `results/asr_by_condition.png`,
   - *Tripwire (gateway):* AgentDojo's tool executor replaced by Tripwire's gateway
     (labels, the unchanged `rules.yaml`, Nano intent/leak classifier, Ultra judge).
   - *Tripwire (full):* gateway plus the quarantined reader on untrusted tool outputs.
-  - *Tripwire (full, strict):* sensitivity check on attacked Slack runs only, with
-    only the user counted as "self" (see Trust domain).
+  - *Tripwire (full, strict trust domain):* sensitivity check on attacked Slack runs
+    only, with only the user counted as "self" (see Trust domain).
 - **Counting:** an action Tripwire held for approval is counted as **not
   completed**. There is no human in the loop in the benchmark, so held actions
   never run. This lowers Tripwire's utility numbers by design.
 
 ## Results
 
-| Suite | Condition | Benign utility | Utility under attack | Targeted ASR | Added median latency / task (benign, attacked) | Mean cost / task (benign, attacked) |
-|---|---|---|---|---|---|---|
-| Slack | No defense | 85.7% (18/21) | 62.9% | **69.5%** (73/105) | – | $0.0033, $0.0056 |
-| Slack | Spotlighting | 90.5% (19/21) | 64.8% | 65.7% (69/105) | +0.8s, +4.6s | $0.0034, $0.0058 |
-| Slack | Tripwire (gateway) | 52.4% (11/21) | 33.3% | 21.9% (23/105) | +1.4s, +4.3s | $0.0047, $0.0072 |
-| Slack | Tripwire (full) | 47.6% (10/21) | 37.1% | **14.3%** (15/105) | +2.5s, +3.6s | $0.0051, $0.0066 |
-| Slack | Tripwire (full, strict) | not run | 8.6% | 11.4% (12/105) | –, +3.5s | –, $0.0064 |
-| Banking | No defense | 87.5% (14/16) | 75.7% | **25.0%** (36/144) | – | $0.0024, $0.0030 |
-| Banking | Spotlighting | 68.8% (11/16) | 78.5% | 22.9% (33/144) | +0.3s, +0.9s | $0.0024, $0.0033 |
-| Banking | Tripwire (gateway) | 43.8% (7/16) | 43.1% | **0.0%** (0/144) | +2.2s, +2.4s | $0.0034, $0.0046 |
-| Banking | Tripwire (full) | 43.8% (7/16) | 43.8% | **0.0%** (0/144) | +4.4s, +2.6s | $0.0041, $0.0036 |
+| Suite | Condition | Strict utility (benign) | Effective utility (benign) | Strict utility under attack | Targeted ASR | Added median latency / task (benign, attacked) | Mean cost / task (benign, attacked) |
+|---|---|---|---|---|---|---|---|
+| Slack | No defense | 85.7% (18/21) | 85.7% | 62.9% | **69.5%** (73/105) | – | $0.0033, $0.0056 |
+| Slack | Spotlighting | 90.5% (19/21) | 90.5% | 64.8% | 65.7% (69/105) | +0.8s, +4.6s | $0.0034, $0.0058 |
+| Slack | Tripwire (gateway) | 52.4% (11/21) | 76.2% | 33.3% | 21.9% (23/105) | +1.4s, +4.3s | $0.0047, $0.0072 |
+| Slack | Tripwire (full) | 47.6% (10/21) | 66.7% | 37.1% | **14.3%** (15/105) | +2.5s, +3.6s | $0.0051, $0.0066 |
+| Slack | Tripwire (full, strict trust domain) | not run | not run | 8.6% | 11.4% (12/105) | –, +3.5s | –, $0.0064 |
+| Banking | No defense | 87.5% (14/16) | 87.5% | 75.7% | **25.0%** (36/144) | – | $0.0024, $0.0030 |
+| Banking | Spotlighting | 68.8% (11/16) | 68.8% | 78.5% | 22.9% (33/144) | +0.3s, +0.9s | $0.0024, $0.0033 |
+| Banking | Tripwire (gateway) | 43.8% (7/16) | 87.5% | 43.1% | **0.0%** (0/144) | +2.2s, +2.4s | $0.0034, $0.0046 |
+| Banking | Tripwire (full) | 43.8% (7/16) | 81.2% | 43.8% | **0.0%** (0/144) | +4.4s, +2.6s | $0.0041, $0.0036 |
+
+**Strict utility** counts an action held for approval as not completed; **effective
+utility** counts it as completed on approval (an upper bound: approvals were not
+replayed; benign runs only). Both are defined in full under "Two utility numbers".
 
 Latency is the median, because occasional Token Factory request stalls added
 minutes to single runs and swamp a mean.
@@ -169,6 +173,20 @@ The categories, with examples:
 6. **Reader detail loss (full condition only).** The reader's summary dropped a
    detail a task needed (e.g. exact counts), with no gateway stop involved.
 
+### The reader is a dial
+
+| Suite | Condition | Targeted ASR | Strict utility | Effective utility |
+|---|---|---|---|---|
+| Slack | Tripwire (gateway only) | 21.9% | 52.4% | 76.2% |
+| Slack | Tripwire (full: gateway + reader) | 14.3% | 47.6% | 66.7% |
+| Banking | Tripwire (gateway only) | 0.0% | 43.8% | 87.5% |
+| Banking | Tripwire (full: gateway + reader) | 0.0% | 43.8% | 81.2% |
+
+On Slack, turning the quarantined reader on lowers attack success from 21.9% to
+14.3% and costs effective utility (76.2% to 66.7%). On Banking the gateway alone
+already stops every attack, so the reader only costs utility. Gateway-only is the
+higher-utility setting; full is the lower-attack setting.
+
 ## Where attacks still got through, and what we learned
 
 - **Attacker-controlled names labeled trusted (Slack, goals 1 and 5).** One of
@@ -185,7 +203,7 @@ The categories, with examples:
   private data leaves (R5 checks URLs for private specifics), but the visit itself
   counts as attacker success in AgentDojo.
 - **Strict trust domain (Slack, attacked):** ASR drops from 14.3% to 11.4% (goal 5,
-  inviting an outsider, from 5/21 to 2/21), but utility under attack falls from
+  inviting an outsider, from 5/21 to 2/21), but strict utility under attack falls from
   37.1% to 8.6%, because every message to a colleague now counts as external. The
   team trust domain is the better default.
 

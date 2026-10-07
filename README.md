@@ -63,9 +63,13 @@ have finished the task.
 ![Attack success rate by condition](evals/agentdojo/results/asr_by_condition.png)
 ![What happened to each benign task](evals/agentdojo/results/benign_outcomes.png)
 
-Tripwire cuts attack success sharply and pays for it in utility. Most of the gap
+Tripwire is layered: a hardened system prompt, the quarantined reader and the
+gateway. The no-defense baseline removes all three. Tripwire cuts attack success
+sharply and pays for it in utility. Most of the gap
 is actions held for one-tap approval; the rest is hard blocks, mainly where the
-user asks it to follow a web page's instructions. Full results, the frozen tool mapping, the
+user asks it to follow a web page's instructions. The reader is a dial: on Slack,
+gateway-only Tripwire has 21.9% attack success with 76.2% effective utility, and
+adding the reader gives 14.3% with 66.7%. Full results, the frozen tool mapping, the
 failure analysis and every caveat are in [evals/agentdojo/results.md](evals/agentdojo/results.md).
 
 AgentDojo is MIT-licensed. Debenedetti et al., *AgentDojo: A Dynamic Environment to
