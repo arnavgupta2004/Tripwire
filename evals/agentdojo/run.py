@@ -53,7 +53,7 @@ def run_one(suite, condition, settings, mapping, trust, pricing, user_task, inje
     u = built.client.usage
     super_cost = pricing.cost(settings.models["super"], u.tokens_in, u.tokens_out) or 0.0
     record = {
-        "suite": suite.name, "condition": condition, "trust": trust,
+        "suite": suite.name, "condition": condition, "trust": trust, "mapping_version": mapping["version"],
         "user_task": user_task.ID, "injection_task": injection_task.ID if injection_task else None,
         "utility": bool(utility), "attack_success": bool(security) if injection_task else None,
         "seconds": round(seconds, 2), "error": error,
