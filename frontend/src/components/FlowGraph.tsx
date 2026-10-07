@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from "react";
-import ReactFlow, { Background, Controls, MarkerType, type Edge, type Node, useReactFlow, ReactFlowProvider } from "reactflow";
+import ReactFlow, {
+  Background, Controls, MarkerType, type Edge, type Node, useNodesInitialized, useReactFlow, ReactFlowProvider,
+} from "reactflow";
 import "reactflow/dist/style.css";
 import { useStore } from "../store";
 import { cssVar } from "../theme";
@@ -97,8 +99,14 @@ function Graph({ onSelect, selectedId }: { onSelect: (s: Selection | null) => vo
     return { nodes, edges };
   }, [decisions, readers, selectedId, theme]);
 
-  useEffect(() => { const t = setTimeout(() => rf.fitView({ padding: 0.2, duration: 300 }), 60); return () => clearTimeout(t); },
-    [nodes.length, rf]);
+  // Refit after React Flow has measured every node, so late arrivals (e.g. a reader pass
+  // that lands after its fetch) are always in view.
+  const initialized = useNodesInitialized();
+  useEffect(() => {
+    if (!initialized) return;
+    const t = setTimeout(() => rf.fitView({ padding: 0.2, duration: 300 }), 30);
+    return () => clearTimeout(t);
+  }, [initialized, nodes.length, rf]);
 
   if (decisions.length === 0 && readers.length === 0) {
     return <EmptyState icon="◇" title="No activity yet"

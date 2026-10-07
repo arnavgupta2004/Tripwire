@@ -165,7 +165,8 @@ def _untrusted():
 def test_context_endpoint():
     session, client = build([])
     body = client.get("/session/context").json()
-    assert body == {"private": False, "untrusted": False, "sources": [], "badge": ""}
+    assert {k: body[k] for k in ("private", "untrusted", "sources", "badge")} == {"private": False, "untrusted": False, "sources": [], "badge": ""}
+    assert body["thread_started"] > 0
 
 
 def test_cors_headers_present():

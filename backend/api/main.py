@@ -135,6 +135,7 @@ def create_app(session: Session) -> FastAPI:
             "untrusted": not label.is_trusted,
             "sources": sorted(label.sources),
             "badge": label.badge,
+            "thread_started": session.thread_started,
         }
 
     @app.get("/approvals")

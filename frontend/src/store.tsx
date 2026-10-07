@@ -135,12 +135,17 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try { await api.runNow(topic); } finally { setThinking(false); refreshLight(); }
   }, [refreshLight]);
 
+  // The /events socket replays recent history on connect; show only the current thread.
+  const threadStart = context?.thread_started ?? 0;
+  const visibleEvents = useMemo(
+    () => events.filter((e) => ((e as { ts?: number }).ts ?? Infinity) >= threadStart), [events, threadStart]);
+
   const value = useMemo<Store>(() => ({
-    health, usage, context, events, approvals, messages, thinking, wsUp, theme, demoExamples,
+    health, usage, context, events: visibleEvents, approvals, messages, thinking, wsUp, theme, demoExamples,
     send, answer, setShield, newThread, loadDemo, runNow,
     toggleTheme: () => setTheme((t) => (t === "dark" ? "light" : "dark")),
     clearEvents: () => { setEvents([]); seen.current = new Set(); },
-  }), [health, usage, context, events, approvals, messages, thinking, wsUp, theme, demoExamples,
+  }), [health, usage, context, visibleEvents, approvals, messages, thinking, wsUp, theme, demoExamples,
        send, answer, setShield, newThread, loadDemo, runNow]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

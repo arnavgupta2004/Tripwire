@@ -274,3 +274,11 @@ def test_seed_demo_resets_and_seeds():
     facts = [f.value for f in s.skills.memory.all()]
     assert "old fact" not in facts and len(facts) == 3
     assert planner.resumes[-1] == "reset"
+
+
+def test_new_thread_moves_the_thread_start():
+    s, planner, _ = make_session([])
+    before = s.thread_started
+    time.sleep(0.01)
+    s.new_thread()
+    assert s.thread_started > before

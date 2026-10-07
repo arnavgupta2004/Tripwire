@@ -96,7 +96,10 @@ export type Step = {
   shield: boolean;
 };
 
-export type ContextLabel = { private: boolean; untrusted: boolean; sources: string[]; badge: string };
+export type ContextLabel = {
+  private: boolean; untrusted: boolean; sources: string[]; badge: string;
+  thread_started?: number; // seconds since epoch; events before it belong to an earlier thread
+};
 
 export type TierUsage = {
   calls: number;

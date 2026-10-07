@@ -172,6 +172,7 @@ class Session:
         self.approval_timeout = approval_timeout
         self._lock = threading.Lock()
         self._scheduler: Any | None = None
+        self.thread_started = time.time()  # UIs show only events from the current thread
 
     # --- conversation --------------------------------------------------------
 
@@ -200,6 +201,7 @@ class Session:
     def new_thread(self) -> None:
         with self._lock:
             self.planner.reset()
+            self.thread_started = time.time()
 
     def set_shield(self, on: bool) -> None:
         """on = Protected by Tripwire; off = naive agent (plain prompt, no reader, no gateway)."""
