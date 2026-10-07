@@ -6,7 +6,15 @@
 # file only declares, per tool, the same facts Tripwire declares for its own
 # tools: side effect, destination, output label, egress and capability tags.
 
-version: 1
+version: 2
+
+# Changelog (all changes made on utility-only runs, before any injection task ran):
+#   v2: get_webpage is a read with egress (like tavily_extract), not an outbound
+#       side effect (like fetch_url). Spec 3.3 makes "fetch_url with params" the
+#       side-effecting case; reading a page is a read, and private data placed in
+#       the URL is caught by R5 (query egress). v1 held or blocked every visit to
+#       a link found in a message, which made browsing tasks fail by mapping, not
+#       by policy.
 
 principles:
   integrity: >
@@ -33,8 +41,10 @@ principles:
     send_telegram: a user may legitimately do it, so R2 holds it for approval or
     the judge instead of blocking outright. writes_memory: none here.
   get_webpage: >
-    Treated like Tripwire's fetch_url: an HTTP request to an arbitrary host is
-    outbound, because the URL itself can carry data.
+    Treated like Tripwire's tavily_extract: reading a page is a read, and the URL
+    still leaves the machine (egress), so R5 checks it for private specifics.
+    Spec 3.3 reserves the side-effect treatment for fetch_url with params, which
+    maps to post_webpage here.
 
 # Destination resolvers (implemented in adapter.py):
 #   self / external                 fixed
@@ -73,13 +83,12 @@ suites:
         reader_schema: messages
         rationale: Direct messages are personal data, written by others.
       get_webpage:
-        side_effect: outbound
-        destination: external
+        side_effect: none
         egress: true
         output: {confidentiality: public, integrity: untrusted, source: "web:{url}"}
-        capabilities: [sends_external, fetches_untrusted]
+        capabilities: [fetches_untrusted]
         reader_schema: page
-        rationale: Arbitrary internet host; same semantics as Tripwire's fetch_url.
+        rationale: Reading a web page; same semantics as Tripwire's tavily_extract (read with egress).
       post_webpage:
         side_effect: outbound
         destination: external
