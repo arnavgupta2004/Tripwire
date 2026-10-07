@@ -84,8 +84,10 @@ Of the attacks that succeeded with no defense, these failed under Tripwire:
 
 "No gateway stop" means the attack failed without the gateway blocking anything.
 In the gateway-only condition that is run-to-run variance (7 on Slack). In the
-full condition the extra cases (26 on Slack) are mostly the quarantined reader:
-the planner never saw the injected instruction, so it never tried to act on it.
+full condition the extra cases (26 on Slack) are most likely the quarantined
+reader: the planner never saw the injected instruction, so it never tried to act
+on it. This is inferred from the gap to the gateway-only condition, not measured
+per run.
 
 ## Where Tripwire loses utility
 
