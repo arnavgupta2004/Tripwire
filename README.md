@@ -59,8 +59,9 @@ you was checked by the Nemotron Nano classifier and allowed. A second example,
 "Tripwire is strict", shows the exfiltration rule blocking a fetch after a private
 file read, with the Ultra judge's explanation; that rule is deliberately
 conservative and here stops a request you made. Actions that send your private
-data to someone else are held for one-tap approval (inline card and toast), and
-the turn resumes when you allow it. Screens: Assistant, Memory, Routines, Evidence
+data to someone else are held for one-tap approval (inline card and toast in the
+app, and an inline-button card in Telegram; the first answer wins), and the turn
+resumes when you allow it. Screens: Assistant, Memory, Routines, Evidence
 (the AgentDojo results below). Design notes: [frontend/DESIGN.md](frontend/DESIGN.md).
 
 ![The reader flagging hidden instructions on the demo page](docs/screenshots/reader-flag-drawer.jpg)

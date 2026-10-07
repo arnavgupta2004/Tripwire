@@ -87,7 +87,7 @@ identical every time:
 
 Screenshots: `docs/screenshots/reader-flag-flow.jpg`, `docs/screenshots/reader-flag-drawer.jpg`.
 
-### The approval card (verified from the UI; Telegram pending)
+### The approval card (verified live from the UI and from Telegram)
 
 New thread, then: "Send my tax summary to my accountant Priya on Telegram chat
 777." (In our run the assistant first asked where the summary was; answering
@@ -100,8 +100,11 @@ New thread, then: "Send my tax summary to my accountant Priya on Telegram chat
   send runs, the node turns from held to allowed, and the assistant confirms.
   In demo mode messages to other chats are logged but never delivered, by design.
   Log: `demo/verification/approval_ui_run.txt`.
-- **Approving from Telegram** is built and covered by tests (first answer wins),
-  but not yet rehearsed live: the bot's chat id is still being fixed.
+- **Approve from Telegram:** the same card arrives in your Telegram chat with
+  inline buttons. In our run the card arrived 0s after the hold; tapping **Allow
+  once** 25s later resumed the same call as `A0.user_approved` and the turn
+  completed (log: `demo/verification/approval_telegram_run.txt`). The web UI was
+  not running, so Telegram was the only channel that could answer.
 
 Screenshots: `docs/screenshots/approval-card-ui.jpg`, `docs/screenshots/approval-resumed-ui.jpg`.
 

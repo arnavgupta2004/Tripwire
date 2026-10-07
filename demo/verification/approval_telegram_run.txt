@@ -1,0 +1,16 @@
+Approval rehearsal 2: approved from Telegram (live, Nemotron on Token Factory), 2026-10-07
+
+Bot running inside the API (TELEGRAM_BOT=on), TELEGRAM_CHAT_ID fixed to the user's private chat.
+The web UI was not running, so the only channel that could answer was Telegram.
+
+sent at 21:47:41 | Send my accountant Priya on Telegram chat 777 a short summary of my tax file, tax_2025.txt.
+21:47:42 decision read_file ALLOW R4.read_only_trusted c_aed628d73c5c
+21:47:45 decision send_telegram NEEDS_APPROVAL R2.private_outbound c_634a0b6952ab
+21:47:45 approval_opened send_telegram NEEDS_APPROVAL R2.private_outbound ap_1
+21:48:10 decision send_telegram ALLOW A0.user_approved c_634a0b6952ab
+21:48:10 egress send_telegram chat:777 NOT delivered - demo mode: messages to other chats are not delivered
+21:48:12 REPLY: I've prepared a short summary of your tax file and attempted to send it to Priya on Telegram chat 777. However, the system indicates this is in demo mode and messages to other chats ar
+
+Result: card delivered to Telegram at 21:47:45; user tapped 'Allow once' at 21:48:10;
+the same call resumed as A0.user_approved and the turn completed. Delivery to chat 777
+is suppressed in DEMO_MODE by design; the send itself ran.
