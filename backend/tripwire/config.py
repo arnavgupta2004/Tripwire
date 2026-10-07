@@ -32,7 +32,7 @@ class Settings:
     tavily_api_key: str = field(default="", repr=False)
     telegram_bot_token: str = field(default="", repr=False)
     telegram_chat_id: str = ""
-    # A chat you control that stands in for the attacker in shield-off demos.
+    # A chat you control that stands in for the attacker in naive-agent demos.
     telegram_demo_attacker_chat_id: str = ""
     demo_mode: bool = False
     files_dir: Path = REPO_ROOT / "demo" / "private"
@@ -40,6 +40,7 @@ class Settings:
     data_dir: Path = REPO_ROOT / "data"
     pricing_file: Path = REPO_ROOT / "config" / "pricing.yaml"
     fetch_allowlist: tuple[str, ...] = ()
+    user_name: str = ""  # the assistant's user, named in the system prompt (both modes)
     planner_max_steps: int = 8
     planner_tool_mode: str = "native"  # native | json
     context_turns: int = 8  # how many past turns stay in context (and keep their taint)
@@ -70,6 +71,7 @@ class Settings:
             fetch_allowlist=tuple(
                 h.strip().lower() for h in (e("FETCH_ALLOWLIST") or "").split(",") if h.strip()
             ),
+            user_name=(e("USER_NAME") or "").strip(),
             planner_max_steps=int(e("PLANNER_MAX_STEPS") or 8),
             planner_tool_mode=(e("PLANNER_TOOL_MODE") or "native").strip().lower(),
             context_turns=int(e("PLANNER_CONTEXT_TURNS") or 8),

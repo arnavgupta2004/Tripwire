@@ -175,8 +175,21 @@ class PassthroughReader:
     quarantined = False
     MAX_CHARS = 12_000
 
-    def read(self, text: str, schema: Mapping[str, Any] | None = None, source: str = "") -> ReaderResult:
-        return ReaderResult({"raw_text": text[: self.MAX_CHARS]}, False, "", 1, source=source)
+    def read(self, text: str, schema: Mapping[str, Any] | None = None, source: str = "") -> "RawPage":
+        return RawPage(source, text[: self.MAX_CHARS])
+
+
+@dataclass(frozen=True)
+class RawPage:
+    """What a naive agent sees: the page as text, with none of Tripwire's reader fields."""
+
+    source: str
+    text: str
+    data: dict[str, Any] = field(default_factory=dict)
+    suspicious_instructions_detected: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        return {"url": self.source, "content": self.text}
 
 
 class QuarantinedReader:

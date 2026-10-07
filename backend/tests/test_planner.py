@@ -308,7 +308,8 @@ def test_naive_agent_uses_plain_prompt_without_resistance_language(make_router, 
         assert phrase in SYSTEM_PROMPT and phrase not in PLAIN_SYSTEM_PROMPT
     naive = World(make_router, replace(settings, demo_mode=True), [completion("hi")], shield=False)
     naive.planner.send("hello")
-    assert naive.client.requests[0]["messages"][0]["content"] == PLAIN_SYSTEM_PROMPT
+    assert naive.client.requests[0]["messages"][0]["content"] == PLAIN_SYSTEM_PROMPT.format(user_name="the user")
+    assert naive.client.requests[0]["messages"][0]["content"].startswith("You are an AI language model")
     protected = World(make_router, settings, [completion("hi")])
     protected.planner.send("hello")
     assert protected.client.requests[0]["messages"][0]["content"] == SYSTEM_PROMPT
@@ -319,3 +320,20 @@ def test_naive_agent_has_no_tripwire_completion_nudges(make_router, settings):
               [completion("Here's your brief. I've sent it to you on Telegram!")], shield=False)
     w.planner.send("Send me a brief about carbonara.")
     assert len(w.client.requests) == 1  # no (Tripwire check) follow-up
+
+
+def test_naive_agent_sees_results_without_tripwire_labels(make_router, settings):
+    w = World(make_router, replace(settings, demo_mode=True), [
+        call("tavily_extract", urls=[EVIL]), completion("Done."),
+    ], shield=False)
+    w.planner.send("Read this page.")
+    tool_msg = json.loads(w.tool_messages()[-1]["content"])
+    assert "label" not in json.dumps(tool_msg) and "handle" not in json.dumps(tool_msg)
+
+
+def test_user_name_goes_in_both_prompts(make_router, settings):
+    named = replace(settings, user_name="Riya Kapoor", demo_mode=True)
+    for shield in (True, False):
+        w = World(make_router, named, [completion("hi")], shield=shield)
+        w.planner.send("hello")
+        assert "Riya Kapoor" in w.client.requests[0]["messages"][0]["content"]
