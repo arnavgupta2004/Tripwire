@@ -4,16 +4,33 @@ import type {
 
 const BASE = "/api";
 
+/** A random id per browser: the public demo gives each visitor an isolated session. */
+export const VISITOR: string = (() => {
+  const fresh = () => "v-" + (globalThis.crypto?.randomUUID?.().replace(/-/g, "")
+    ?? Math.random().toString(36).slice(2) + Date.now().toString(36));
+  try {
+    let v = localStorage.getItem("tripwire-visitor");
+    if (!v || !/^[A-Za-z0-9_-]{8,64}$/.test(v)) {
+      v = fresh();
+      localStorage.setItem("tripwire-visitor", v);
+    }
+    return v;
+  } catch {
+    return fresh();
+  }
+})();
+const VISITOR_HEADER = { "X-Tripwire-Visitor": VISITOR };
+
 async function j<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(BASE + path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...(init?.headers || {}) },
+    headers: { "Content-Type": "application/json", ...VISITOR_HEADER, ...(init?.headers || {}) },
   });
   if (!res.ok) throw new Error(`${path}: ${res.status}`);
   return res.json() as Promise<T>;
 }
 
-export type ChatDone = { reply: string; steps: Step[] };
+export type ChatDone = { reply: string; steps: Step[]; limited?: boolean };
 
 /** POST /chat, parsing the SSE stream. Calls onEvent for each bus event; resolves on "done". */
 export async function streamChat(
@@ -23,7 +40,7 @@ export async function streamChat(
 ): Promise<ChatDone> {
   const res = await fetch(BASE + "/chat", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...VISITOR_HEADER },
     body: JSON.stringify({ message }),
     signal,
   });
@@ -55,7 +72,7 @@ export function connectEvents(onEvent: (e: BusEvent) => void, onStatus?: (up: bo
   let ws: WebSocket | null = null;
   let closed = false;
   let retry: ReturnType<typeof setTimeout> | null = null;
-  const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${BASE}/events`;
+  const url = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}${BASE}/events?visitor=${VISITOR}`;
   const open = () => {
     ws = new WebSocket(url);
     ws.onopen = () => onStatus?.(true);

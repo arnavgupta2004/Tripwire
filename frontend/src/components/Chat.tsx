@@ -39,6 +39,7 @@ export function Chat() {
             <div className={
               m.role === "user" ? "max-w-[85%] rounded-2xl rounded-br-sm bg-brand px-3.5 py-2 text-sm text-white"
               : m.role === "error" ? "max-w-[85%] rounded-2xl border border-danger/40 bg-danger/5 px-3.5 py-2 text-sm text-danger"
+              : m.role === "notice" ? "max-w-[85%] rounded-2xl border border-untrusted/40 bg-untrusted/10 px-3.5 py-2 text-sm text-ink"
               : "max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-bl-sm border border-line bg-surface-raised px-3.5 py-2 text-sm text-ink"
             }>
               {m.pending ? <Spinner label="Thinking…" /> : m.text}

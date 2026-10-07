@@ -6,7 +6,7 @@ import { applyTheme, initialTheme, type Theme } from "./theme";
 
 export type ChatMessage = {
   id: string;
-  role: "user" | "assistant" | "error";
+  role: "user" | "assistant" | "error" | "notice";
   text: string;
   pending?: boolean;
 };
@@ -92,7 +92,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     try {
       const done = await streamChat(text, addEvent);
       setMessages((m) => m.map((msg) => msg.id === pendingId
-        ? { ...msg, text: done.reply || "(no reply)", pending: false } : msg));
+        ? { ...msg, role: done.limited ? "notice" : "assistant", text: done.reply || "(no reply)", pending: false }
+        : msg));
     } catch (err) {
       setMessages((m) => m.map((msg) => msg.id === pendingId
         ? { id: msg.id, role: "error", text: "Something went wrong handling that message." } : msg));

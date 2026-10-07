@@ -125,4 +125,8 @@ export type MemoryFact = {
   label: LabelFlags;
 };
 export type Routine = { id: string; kind: string; topic: string; schedule: string };
-export type Health = { ok: boolean; shield: boolean; mode: "protected" | "naive"; demo_mode: boolean };
+export type Budget = { day: string; spent_usd: number; cap_usd: number; remaining_usd: number };
+export type Health = {
+  ok: boolean; shield: boolean; mode: "protected" | "naive"; demo_mode: boolean;
+  public_demo?: boolean; budget?: Budget;
+};
