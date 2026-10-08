@@ -66,9 +66,11 @@ In 5 of 5 live runs the quarantined reader flagged the hidden instructions (an
 amber pulsing node in the flow graph; its drawer shows the reader's note, never the
 page's text), the assistant attempted nothing you didn't ask for, and the brief to
 you was checked by the Nemotron Nano classifier and allowed. A second example,
-"Tripwire is strict", shows the exfiltration rule blocking a fetch after a private
-file read, with the Ultra judge's explanation; that rule is deliberately
-conservative and here stops a request you made. Actions that send your private
+"Private read, then a requested fetch", shows the exfiltration rule (R3) after a
+private file read. Since policy v3 it asks the Nano classifier whether you asked
+for the fetch and whether it carries private data, instead of blocking it outright;
+an unrequested call carrying private data is still blocked, and `POLICY_PROFILE=strict`
+restores v2's hard block. Actions that send your private
 data to someone else are held for one-tap approval (inline card and toast in the
 app, and an inline-button card in Telegram; the first answer wins), and the turn
 resumes when you allow it. Screens: Assistant, Memory, Routines, Evidence

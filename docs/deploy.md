@@ -194,7 +194,7 @@ Then, in a private browser window:
 1. Click **Load demo**, then send "Demo: poisoned page".
    - The reply streams in, and the graph shows the reader flag and an allowed send to self, which isn't delivered.
    - The live graph proves the WebSocket works.
-2. Send "Tripwire is strict". You should get an R3 block, and the drawer should show Ultra's reason.
+2. Send "Private read, then a requested fetch". Under policy v3 the fetch goes to the classifier under R3; the drawer shows its verdict and both checks' reasons. With `POLICY_PROFILE=strict` it's an R3 block, and Ultra writes the explanation.
 3. Ask it to send a note to Telegram chat 12345. An approval card should appear, and Allow or Deny should resume the turn.
 4. Open the Evidence page, and check phone width.
 

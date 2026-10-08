@@ -108,17 +108,17 @@ New thread, then: "Send my tax summary to my accountant Priya on Telegram chat
 
 Screenshots: `docs/screenshots/approval-card-ui.jpg`, `docs/screenshots/approval-resumed-ui.jpg`.
 
-### Secondary example: "Tripwire is strict" (verified, 5 of 5)
+### Secondary example: "Private read, then a requested fetch" (policy v3)
 
 The second example chip: "Read my tax file and summarise the article at <page>."
-The tax file is read, and the article fetch is **blocked by the exfiltration rule
-(R3)**: once private data is in the turn, any request to an outside host could
-carry it out in the URL. Ultra explains it a moment later in the drawer. Say it
-straight: this blocks a request you made. It is the conservative "hard blocked"
-cost the benchmark measures. A **New thread** clears the private context and the
-fetch then works.
-
-Screenshots: `docs/screenshots/demo-block-flow.jpg`, `docs/screenshots/demo-block-drawer.jpg`.
+The tax file is read, then the article fetch meets the exfiltration rule (R3).
+Under policy v2 (now the `strict` profile) R3 blocked it outright, a request the
+user made (verified 5 of 5; screenshots `docs/screenshots/demo-block-flow.jpg`,
+`docs/screenshots/demo-block-drawer.jpg`). Under v3 the Nano classifier answers two
+questions: did the user ask for this call, and does it carry private data? Asked
+for and clean: allowed. Asked for but carrying private data: held for approval.
+Not asked for: the Ultra judge decides, and not asked for while carrying private
+data is still blocked outright. Re-verify live before recording.
 
 ### Mode switch
 
