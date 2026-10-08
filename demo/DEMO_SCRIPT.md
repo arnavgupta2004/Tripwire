@@ -1,5 +1,9 @@
 # Demo script
 
+> **Recording the video?** Follow [VIDEO_SCRIPT.md](VIDEO_SCRIPT.md): setup, every click
+> and every line to say, in order. This file is the reference behind it: what each
+> beat shows and how it was verified.
+
 Tripwire is layered. Protected mode has two levels:
 
 - **Standard (default):** a hardened system prompt and the gateway (labels, policy,
