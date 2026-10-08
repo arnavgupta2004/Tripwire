@@ -23,7 +23,7 @@ export function ApprovalCard({ approval, compact }: { approval: Approval; compac
         </p>
       )}
       {!compact && (
-        <pre className="mt-2 overflow-x-auto rounded-lg bg-surface-sunken p-2 text-xs text-ink-soft">
+        <pre className="mt-2 max-h-24 overflow-auto rounded-lg bg-surface-sunken p-2 text-xs text-ink-soft">
           {Object.entries(approval.args).map(([k, v]) => `${k}: ${String(v)}`).join("\n")}
         </pre>
       )}
