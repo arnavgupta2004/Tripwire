@@ -8,6 +8,12 @@ export type MockState = {
   answers: { id: string; answer: string }[];
   chatReply: string;
   chatEvents: Record<string, unknown>[];
+  // Optional fixtures for screenshots (defaults are empty).
+  usage?: Record<string, unknown>;
+  context?: Record<string, unknown>;
+  memory?: Record<string, unknown>;
+  wsEvents?: Record<string, unknown>[];  // pushed over /events on connect
+  chatHang?: boolean;                    // leave /chat open (a turn paused for approval)
 };
 
 export function decisionEvent(tool: string, verdict = "ALLOW", extra: Record<string, unknown> = {}) {
@@ -28,7 +34,9 @@ export async function mockApi(page: Page, overrides: Partial<MockState> = {}): P
     mode: "protected", security: "standard", approvals: [], answers: [], chatReply: "Done.", chatEvents: [],
     ...overrides,
   };
-  await page.routeWebSocket("**/api/events", () => { /* accepted, silent */ });
+  await page.routeWebSocket("**/api/events**", (ws) => {
+    for (const e of state.wsEvents ?? []) ws.send(JSON.stringify(e));
+  });
   await page.route("**/api/**", async (route) => {
     const req = route.request();
     const path = new URL(req.url()).pathname.replace(/^\/api/, "");
@@ -46,11 +54,14 @@ export async function mockApi(page: Page, overrides: Partial<MockState> = {}): P
       state.security = "high";
       return json({ ok: true, suggested_prompt: "Read the article", examples: [], files: [], security: "high" });
     }
+    if (path === "/session/usage" && state.usage) return json(state.usage);
     if (path === "/session/usage") {
       return json({ tiers: { nano: ZERO_TIER, super: ZERO_TIER, ultra: ZERO_TIER }, total_calls: 0,
                     total_cost_usd: 0, headline: "" });
     }
+    if (path === "/session/context" && state.context) return json(state.context);
     if (path === "/session/context") return json({ private: false, untrusted: false, sources: [], badge: "" });
+    if (path === "/memory" && state.memory) return json(state.memory);
     if (path === "/memory") return json({ facts: [], tasks: [] });
     if (path === "/approvals") return json(state.approvals);
     if (path.startsWith("/approvals/") && req.method() === "POST") {
@@ -64,6 +75,7 @@ export async function mockApi(page: Page, overrides: Partial<MockState> = {}): P
       state.mode = on ? "protected" : "naive";
       return json({ ok: true, shield: on, mode: state.mode });
     }
+    if (path === "/chat" && state.chatHang) return;  // never answered: the UI keeps "Thinking…"
     if (path === "/chat") {
       const blocks = state.chatEvents.map((e) => `event: ${e.kind}\ndata: ${JSON.stringify(e)}\n\n`).join("");
       const done = `event: done\ndata: ${JSON.stringify({ reply: state.chatReply, steps: [] })}\n\n`;
