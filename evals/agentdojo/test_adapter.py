@@ -31,13 +31,13 @@ def executor(suite_name, trust="team"):
     return ex
 
 
-@pytest.mark.parametrize("suite_name", ["slack", "banking"])
+@pytest.mark.parametrize("suite_name", ["slack", "banking", "travel"])
 def test_mapping_covers_every_tool_exactly(suite_name):
     suite = get_suite("v1.2.2", suite_name)
     check_mapping(MAPPING, suite_name, [t.name for t in suite.tools])
 
 
-@pytest.mark.parametrize("suite_name", ["slack", "banking"])
+@pytest.mark.parametrize("suite_name", ["slack", "banking", "travel"])
 def test_every_tool_has_a_rationale(suite_name):
     for name, spec in MAPPING["suites"][suite_name]["tools"].items():
         assert spec.get("rationale"), name
@@ -126,3 +126,17 @@ def test_bill_then_payment_is_never_silently_allowed():
 class _FakeRuntime:
     def run_function(self, env, name, args):
         return f"<{name} result>", None
+
+
+def test_travel_email_is_self_only_when_every_address_is_the_user():
+    ex = executor("travel")
+    me = ex._env.user.email
+    assert dest(ex, "send_email", recipients=[me], subject="s", body="b") is Destination.SELF
+    assert dest(ex, "send_email", recipients=[me], cc=["x@other.example"], subject="s", body="b") \
+        is Destination.EXTERNAL
+    assert dest(ex, "create_calendar_event", participants=[], title="t") is Destination.SELF
+    assert dest(ex, "create_calendar_event", participants=["x@other.example"], title="t") is Destination.EXTERNAL
+
+
+def test_executor_records_the_policy_version():
+    assert executor("travel").policy == {"profile": "default", "version": "3"}

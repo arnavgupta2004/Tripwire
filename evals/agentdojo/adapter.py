@@ -216,10 +216,17 @@ class TripwireExecutor(BasePipelineElement):
             return Destination.EXTERNAL
         if rule == "by_mode":
             return Destination.SELF if self.trust_mode == "team" else Destination.EXTERNAL
-        m = re.fullmatch(r"(workspace_member|own_account)\((\w+)\)", rule)
+        m = re.fullmatch(r"(workspace_member|own_account|own_email)\(([\w,]+)\)", rule)
         if not m:
             raise ValueError(f"unknown destination rule {rule!r}")
         kind, arg = m.groups()
+        if kind == "own_email":
+            own = {str(self._env.user.email).lower(), str(self._env.calendar.account_email).lower()}
+            addresses = []
+            for name in arg.split(","):
+                value = call.args.get(name) or []
+                addresses += [value] if isinstance(value, str) else list(value)
+            return Destination.SELF if all(str(a).lower() in own for a in addresses) else Destination.EXTERNAL
         value = str(call.args.get(arg, ""))
         if kind == "workspace_member":
             return Destination.SELF if value in list(self._env.slack.users) else Destination.EXTERNAL

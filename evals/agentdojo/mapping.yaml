@@ -6,9 +6,12 @@
 # file only declares, per tool, the same facts Tripwire declares for its own
 # tools: side effect, destination, output label, egress and capability tags.
 
-version: 2
+version: 3
 
 # Changelog (all changes made on utility-only runs, before any injection task ran):
+#   v3: travel suite added, written from the tools' descriptions and the principles
+#       below before any travel task (utility or attack) was run. Slack and banking
+#       entries are unchanged from v2.
 #   v2: get_webpage is a read with egress (like tavily_extract), not an outbound
 #       side effect (like fetch_url). Spec 3.3 makes "fetch_url with params" the
 #       side-effecting case; reading a page is a read, and private data placed in
@@ -50,6 +53,7 @@ principles:
 #   self / external                 fixed
 #   workspace_member(<arg>)         self if <arg> is a member of the user's workspace
 #   own_account(<arg>)              self if <arg> is the user's own IBAN
+#   own_email(<arg>,...)            self if every address in the listed args is the user's own
 #   by_mode                         self in team mode, external in strict mode
 
 # Reader schemas (Tripwire full condition only) for untrusted outputs:
@@ -188,3 +192,70 @@ suites:
         output: status
         capabilities: []
         rationale: Changes the user's own account settings.
+
+  travel:
+    tools:
+      get_user_information:
+        side_effect: none
+        output: {confidentiality: private, integrity: trusted, source: "travel:user"}
+        capabilities: [reads_private]
+        rationale: The user's own profile (ID, passport, card numbers); system of record.
+      get_all_hotels_in_city: &catalogue
+        side_effect: none
+        output: {confidentiality: public, integrity: trusted, source: "travel:catalogue"}
+        capabilities: []
+        rationale: Structured listing from the travel service's catalogue (names, prices, addresses).
+      get_hotels_prices: *catalogue
+      get_hotels_address: *catalogue
+      get_all_restaurants_in_city: *catalogue
+      get_cuisine_type_for_restaurants: *catalogue
+      get_restaurants_address: *catalogue
+      get_dietary_restrictions_for_all_restaurants: *catalogue
+      get_contact_information_for_restaurants: *catalogue
+      get_price_for_restaurants: *catalogue
+      check_restaurant_opening_hours: *catalogue
+      get_all_car_rental_companies_in_city: *catalogue
+      get_car_types_available: *catalogue
+      get_car_fuel_options: *catalogue
+      get_car_rental_address: *catalogue
+      get_car_price_per_day: *catalogue
+      get_flight_information: *catalogue
+      get_rating_reviews_for_hotels: &reviews
+        side_effect: none
+        output: {confidentiality: public, integrity: untrusted, source: "travel:reviews"}
+        capabilities: [fetches_untrusted]
+        reader_schema: records
+        rationale: Free-text reviews written by members of the public.
+      get_rating_reviews_for_restaurants: *reviews
+      get_rating_reviews_for_car_rental: *reviews
+      search_calendar_events: &calendar
+        side_effect: none
+        output: {confidentiality: private, integrity: untrusted, source: "travel:calendar"}
+        capabilities: [reads_private, fetches_untrusted]
+        reader_schema: records
+        rationale: The user's personal calendar; event text can be written by other participants.
+      get_day_calendar_events: *calendar
+      create_calendar_event:
+        side_effect: outbound
+        destination: "own_email(participants)"
+        output: status
+        capabilities: []
+        rationale: Invitations go to the listed participants; self only if the user is the only one.
+      cancel_calendar_event:
+        side_effect: local
+        output: status
+        capabilities: []
+        rationale: Changes the user's own calendar.
+      reserve_hotel: &booking
+        side_effect: local
+        output: status
+        capabilities: []
+        rationale: Books on the user's own travel account; no message content is sent.
+      reserve_car_rental: *booking
+      reserve_restaurant: *booking
+      send_email:
+        side_effect: outbound
+        destination: "own_email(recipients,cc,bcc)"
+        output: status
+        capabilities: []
+        rationale: Emailing named people; like messaging a person, R2/R1 apply.
