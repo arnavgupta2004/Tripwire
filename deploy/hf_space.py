@@ -25,6 +25,8 @@ REPO = Path(__file__).resolve().parents[1]
 GITHUB_REPO = "arnavgupta2004/Tripwire"
 BUNDLE_PATHS = ["Dockerfile", ".dockerignore", "pyproject.toml", "uv.lock", "backend", "frontend", "config",
                 "demo/private", "demo/injection", "deploy/entrypoint.sh"]
+# Not needed to build or run, so not published: tests, e2e harness, build caches.
+BUNDLE_EXCLUDE = ["backend/tests", "frontend/e2e", "frontend/playwright.config.ts", "frontend/tsconfig.tsbuildinfo"]
 MODEL_VARS = ("NEMOTRON_NANO_MODEL", "NEMOTRON_SUPER_MODEL", "NEMOTRON_ULTRA_MODEL")
 
 SPACE_README = """---
@@ -99,6 +101,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("space", help="owner/name of an existing Docker Space")
     ap.add_argument("--mode", choices=["clone", "bundle"], required=True)
+    ap.add_argument("--list", action="store_true", help="print the files that would be published, then stop")
     args = ap.parse_args()
 
     if _git("status", "--porcelain", "--untracked-files=no").strip():
@@ -108,10 +111,16 @@ def main() -> None:
     sha = _git("rev-parse", "HEAD").strip()
 
     api = HfApi()
+    if args.list:
+        files = _git("ls-tree", "-r", "--name-only", "HEAD", "--", *BUNDLE_PATHS,
+                     *[f":(exclude){p}" for p in BUNDLE_EXCLUDE]).split() if args.mode == "bundle" else ["Dockerfile"]
+        print("\n".join(sorted(files + ["README.md"])))
+        return
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp)
         if args.mode == "bundle":
-            archive = subprocess.run(["git", "-C", str(REPO), "archive", "HEAD", *BUNDLE_PATHS],
+            excludes = [f":(exclude){p}" for p in BUNDLE_EXCLUDE]
+            archive = subprocess.run(["git", "-C", str(REPO), "archive", "HEAD", "--", *BUNDLE_PATHS, *excludes],
                                      check=True, capture_output=True).stdout
             subprocess.run(["tar", "-x", "-C", str(out)], input=archive, check=True)
         else:
