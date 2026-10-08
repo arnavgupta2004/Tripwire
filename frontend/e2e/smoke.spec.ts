@@ -61,7 +61,8 @@ test("Evidence page renders the AgentDojo charts", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Evidence: AgentDojo" })).toBeVisible();
   await expect(page.getByRole("button", { name: "Evidence" })).toHaveAttribute("aria-current", "page");
   for (const title of ["Targeted attack success by condition", "Strict vs effective utility (Tripwire)",
-                       "What happened to each benign task", "Slack: attack success per goal"]) {
+                       "What happened to each benign task", "Travel: attack success per goal",
+                       "Policy v2 vs v3 (development suites, Tripwire full)"]) {
     await expect(page.getByText(title)).toBeVisible();
   }
   await expect.poll(() => page.locator(".recharts-bar-rectangle").count()).toBeGreaterThan(20);

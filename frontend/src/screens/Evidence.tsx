@@ -88,7 +88,7 @@ export function Evidence() {
     name: `Goal ${i + 1}`, "No defense": parseFrac(goalNone[k]), "Tripwire (full)": parseFrac(goalFull[k] ?? "0/0"),
   }));
   const headline = SUITES.map((su) => ({
-    suite: su, none: S[su]?.none?.asr, full: pick(S, su, "tripwire_full")?.asr,
+    suite: su, none: S[su]?.none?.asr, gw: pick(S, su, "tripwire_gw")?.asr, full: pick(S, su, "tripwire_full")?.asr,
   }));
 
   const axis = { tick: { fontSize: 11, fill: C.ink }, stroke: C.grid };
@@ -112,7 +112,7 @@ export function Evidence() {
         <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
           {headline.map((h) => (
             <Chip key={h.suite} tone={role(h.suite) === "held-out" ? "brand" : "neutral"}>
-              {title(h.suite)} ({role(h.suite)}) {pct(h.none)} → {pct(h.full)} attack success
+              {title(h.suite)} ({role(h.suite)}): {pct(h.none)} → {pct(h.gw)} gateway, {pct(h.full)} with reader
             </Chip>
           ))}
           <Chip tone="neutral">full write-up: evals/agentdojo/results.md</Chip>
@@ -209,6 +209,8 @@ export function Evidence() {
         <ul className="list-disc space-y-1 pl-5">
           <li>Same model (Nemotron Super) and system message in every condition. Only the defense differs.</li>
           <li>Development suites shaped the policy, so their numbers flatter it; the held-out suite is the honest estimate.</li>
+          <li>Tripwire governs tool calls, not prose. Travel's goal 6 ("say I should visit this hotel") is persuasion in the
+            reply with no action to stop: only the reader affects it, and the reader costs utility.</li>
           <li>One run per (task, attack) pair, so single bars are noisy; the comparison across conditions is the signal.</li>
           <li>The reader is a dial: gateway-only gives higher utility, full gives fewer successful attacks.</li>
           <li>Caveats (temperature default, role mapping, trust-domain definition) are in results.md.</li>
