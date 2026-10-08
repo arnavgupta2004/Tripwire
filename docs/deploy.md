@@ -55,6 +55,11 @@ The image never contains secrets. `.env` is in `.dockerignore`, and keys come fr
 - The gist holds the same numbers.
 - Ground truth for model spend is the Token Factory usage page for the deployment key.
 
+**Keep-alive:** `.github/workflows/keepalive.yml` GETs `/healthz` every 10 minutes. That endpoint returns a fixed response and never calls a model. GitHub may run scheduled jobs several minutes late, so a sleep can still slip through.
+- **Hours:** the 750 free instance hours a month cover one service running 24/7 (31 × 24 = 744 h). That only holds if this is the workspace's only free service.
+- **GitHub minutes:** each run bills one minute, which is about 4,460 minutes a month. Public repos get Actions minutes free. Private repos on GitHub Free get 2,000 a month, which the keep-alive would use up partway through the month. CI shares that pool.
+- **Switch:** the job only runs when the repo variable is set. To turn it on: `gh variable set KEEPALIVE_ENABLED --body true`. To turn it off, set it to `false`.
+
 **Verify:** run the checks in [demo/verification/render_public_checks.md](../demo/verification/render_public_checks.md). The most recent run passed all of them, including WebSockets and streaming.
 
 ## Sizing and cost (Nebius, eu-north1)

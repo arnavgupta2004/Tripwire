@@ -1,0 +1,24 @@
+name: Keep demo awake
+
+# Render's free tier sleeps after 15 idle minutes; this GETs /healthz every 10.
+# /healthz is static: no model calls, no visitor session.
+# Off until the repository variable KEEPALIVE_ENABLED is "true": on a private repo
+# each run bills one Actions minute (about 4,500 a month at this interval).
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  ping:
+    if: vars.KEEPALIVE_ENABLED == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: GET /healthz
+        run: |
+          curl -fsS --max-time 100 --retry 3 --retry-delay 10 --retry-all-errors \
+            https://tripwire-demo.onrender.com/healthz
