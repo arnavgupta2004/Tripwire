@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { pct1, round1 } from "../src/results/format";
 import { expect, test, type Page } from "@playwright/test";
 import { decisionEvent, mockApi } from "../e2e/mockApi";
 
@@ -93,7 +94,7 @@ async function card(from: Page, html: string, name: string) {
   await page.close();
 }
 
-const pct = (x: number) => `${(100 * x).toFixed(1)}%`;
+const pct = pct1;
 const b64 = (buf: Buffer) => `data:image/png;base64,${buf.toString("base64")}`;
 
 /** A 2x page for crisp UI captures that get composed into cards. */
@@ -337,7 +338,7 @@ test("06 held-out results", async ({ page }) => {
   const bars = rows.map(([label, e, _bd, color], i) => {
     const v = 100 * e.asr, x = 60 + i * 190, h = (v / max) * (H - 90), y = H - 50 - h;
     return `<rect x="${x}" y="${y}" width="120" height="${Math.max(h, 3)}" rx="8" fill="${color}"/>
-      <text x="${x + 60}" y="${y - 14}" text-anchor="middle" font-size="30" font-weight="700" fill="var(--ink)">${v.toFixed(1)}%</text>
+      <text x="${x + 60}" y="${y - 14}" text-anchor="middle" font-size="30" font-weight="700" fill="var(--ink)">${round1(v).toFixed(1)}%</text>
       <text x="${x + 60}" y="${H - 18}" text-anchor="middle" font-size="15" fill="var(--ink-soft)">${label.split(" · ")[0]}</text>
       <text x="${x + 60}" y="${H + 2}" text-anchor="middle" font-size="14" fill="var(--ink-faint)">${label.split(" · ")[1]?.replace(/ \(.+\)/, "") ?? ""}</text>`;
   }).join("");
