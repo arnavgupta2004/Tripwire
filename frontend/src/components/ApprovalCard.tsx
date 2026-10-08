@@ -4,7 +4,7 @@ import { useStore } from "../store";
 import { Button, Chip } from "./ui/primitives";
 
 export function ApprovalCard({ approval, compact }: { approval: Approval; compact?: boolean }) {
-  const { answer } = useStore();
+  const { answer, health } = useStore();
   const [busy, setBusy] = useState(false);
   const act = async (a: "allow" | "deny" | "always_deny") => {
     setBusy(true);
@@ -34,7 +34,9 @@ export function ApprovalCard({ approval, compact }: { approval: Approval; compac
           Always deny this
         </Button>
       </div>
-      <p className="mt-1.5 text-[11px] text-ink-faint">You can also answer from Telegram — the first answer wins.</p>
+      {!health?.public_demo && (
+        <p className="mt-1.5 text-[11px] text-ink-faint">You can also answer from Telegram — the first answer wins.</p>
+      )}
     </div>
   );
 }

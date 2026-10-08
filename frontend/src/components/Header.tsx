@@ -59,7 +59,7 @@ export function Header({ screen, onNavigate }: { screen: Screen; onNavigate: (s:
         <div className="flex items-center gap-2">
           <span className="text-base font-bold tracking-tight">Tripwire</span>
           {health?.public_demo && (
-            <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-faint"
+            <span className="hidden rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-faint sm:inline"
                   title="Fictional demo data only. Nothing is sent anywhere.">public demo</span>
           )}
           <span className={cx("h-1.5 w-1.5 rounded-full", wsUp ? "bg-trusted" : "bg-ink-faint")}
