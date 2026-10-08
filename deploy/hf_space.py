@@ -112,7 +112,7 @@ def main() -> None:
 
     api = HfApi()
     if args.list:
-        files = _git("ls-tree", "-r", "--name-only", "HEAD", "--", *BUNDLE_PATHS,
+        files = _git("ls-files", "--", *BUNDLE_PATHS,
                      *[f":(exclude){p}" for p in BUNDLE_EXCLUDE]).split() if args.mode == "bundle" else ["Dockerfile"]
         print("\n".join(sorted(files + ["README.md"])))
         return
