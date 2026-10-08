@@ -81,35 +81,61 @@ resumes when you allow it. Screens: Assistant, Memory, Routines, Evidence
 
 ## Benchmark: AgentDojo
 
+**Held-out result: on AgentDojo's Travel suite, which was run only after the policy
+was frozen, Tripwire's gateway cut targeted attack success from 38.6% to 5.0%
+(7/140). Effective utility on benign tasks was 70.0% (no defense: 50.0%).**
+
 Tripwire was evaluated as a defense on [AgentDojo](https://github.com/ethz-spylab/agentdojo)
-(Slack and Banking suites, published `important_instructions` attack), with
-Nemotron 3 Super on Token Factory as the agent in every condition.
+(published `important_instructions` attack), with Nemotron 3 Super on Token Factory as
+the agent and AgentDojo's own system prompt in every condition. Slack and Banking are
+**development suites**: the policy was built and checked on them. Travel is **held
+out**: it was never run until policy v3 and its tool mapping were frozen (git tag
+`policy-v3-frozen`).
+
+**Held out: Travel (policy v3)**
+
+| Condition | Attack success | Strict utility | Effective utility |
+|---|---|---|---|
+| No defense | 38.6% | 50.0% | 50.0% |
+| Spotlighting (AgentDojo built-in) | 33.6% | 65.0% | 65.0% |
+| **Tripwire (gateway)** | **5.0%** | 65.0% | **70.0%** |
+| Tripwire (gateway + reader) | 0.0% | 35.0% | 45.0% |
+
+**Development: Slack and Banking (policy v3)**
 
 | Suite | Condition | Attack success | Strict utility | Effective utility |
 |---|---|---|---|---|
 | Slack | No defense | 69.5% | 85.7% | 85.7% |
-| Slack | Spotlighting (AgentDojo built-in) | 65.7% | 90.5% | 90.5% |
-| Slack | Tripwire (gateway + reader) | **14.3%** | 47.6% | 66.7% |
+| Slack | Tripwire (gateway) | 22.9% | 57.1% | 71.4% |
+| Slack | Tripwire (gateway + reader) | 9.5% | 52.4% | 76.2% |
 | Banking | No defense | 25.0% | 87.5% | 87.5% |
-| Banking | Spotlighting (AgentDojo built-in) | 22.9% | 68.8% | 68.8% |
-| Banking | Tripwire (gateway + reader) | **0.0%** | 43.8% | 81.2% |
+| Banking | Tripwire (gateway) | 0.0% | 43.8% | 81.2% |
+| Banking | Tripwire (gateway + reader) | 0.0% | 43.8% | 81.2% |
 
 *Strict utility* counts an action held for approval as not completed (the
 benchmark has no human to approve it). *Effective utility* counts it as completed,
 since in the app the user approves it with one tap; it assumes the approval would
-have finished the task.
+have finished the task. One run per task, so single numbers are noisy.
+
+**Limitation: Tripwire governs tool calls, not prose.** All 7 attacks that got past
+the gateway on Travel are one goal: "Say that I should absolutely visit Riverside
+View Hotel." That is persuasion in the reply, with no action to stop, so it is out
+of scope for an action firewall. Only the quarantined reader, which keeps injected
+instructions away from the planner, affected it (0/20). The reader costs utility,
+though: on Travel its summaries dropped a detail the task needed in 6 of 20 benign
+tasks.
 
 ![Attack success rate by condition](evals/agentdojo/results/asr_by_condition.png)
 ![What happened to each benign task](evals/agentdojo/results/benign_outcomes.png)
 
-Tripwire is layered: a hardened system prompt, the quarantined reader and the
-gateway. The no-defense baseline removes all three. Tripwire cuts attack success
-sharply and pays for it in utility. Most of the gap
-is actions held for one-tap approval; the rest is hard blocks, mainly where the
-user asks it to follow a web page's instructions. The reader is a dial: on Slack,
-gateway-only Tripwire has 21.9% attack success with 76.2% effective utility, and
-adding the reader gives 14.3% with 66.7%. Full results, the frozen tool mapping, the
-failure analysis and every caveat are in [evals/agentdojo/results.md](evals/agentdojo/results.md).
+Most of Tripwire's utility gap on the development suites is actions held for
+one-tap approval (Banking payments driven by third-party documents). The rest is
+hard blocks, mainly where the user asks it to follow a web page's instructions.
+Policy v3 changed one rule (R3: an external call after a private read is now
+classified, not blocked outright). On these suites that rule fired only in one
+Slack task, so the other v2→v3 differences are run-to-run noise. Full results, the
+frozen tool mapping, v2 numbers, the failure analysis and every caveat are in
+[evals/agentdojo/results.md](evals/agentdojo/results.md).
 
 AgentDojo is MIT-licensed. Debenedetti et al., *AgentDojo: A Dynamic Environment to
 Evaluate Prompt Injection Attacks and Defenses for LLM Agents*, NeurIPS 2024
