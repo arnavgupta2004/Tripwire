@@ -1,7 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { api, connectEvents, streamChat } from "./api";
-import type { Approval, BusEvent, ContextLabel, Health, Usage } from "./types";
+import type { Approval, BusEvent, ContextLabel, Health, SecurityLevel, Usage } from "./types";
 import { applyTheme, initialTheme, type Theme } from "./theme";
 
 export type ChatMessage = {
@@ -27,6 +27,7 @@ type Store = State & {
   send: (text: string) => Promise<void>;
   answer: (id: string, ans: "allow" | "deny" | "always_deny") => Promise<void>;
   setShield: (on: boolean) => Promise<string | null>;
+  setSecurity: (level: SecurityLevel) => Promise<string | null>;
   newThread: () => Promise<void>;
   loadDemo: () => Promise<string>;
   demoExamples: { label: string; prompt: string }[];
@@ -115,6 +116,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return null;
   }, []);
 
+  const setSecurity = useCallback(async (level: SecurityLevel) => {
+    const res = await api.setSecurity(level);
+    if (!res.ok) return res.error || "Could not switch the security level.";
+    setHealth((h) => h ? { ...h, security: res.security } : h);
+    return null;
+  }, []);
+
   const newThread = useCallback(async () => {
     await api.newThread();
     setMessages([]);
@@ -126,6 +134,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const loadDemo = useCallback(async () => {
     const res = await api.loadDemo();
     setDemoExamples(res.examples || []);
+    api.health().then(setHealth).catch(() => {});  // the demo switches this visitor to High-security
     setMessages([]); setEvents([]); seen.current = new Set();
     await refreshLight();
     return res.suggested_prompt || "";
@@ -143,11 +152,11 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<Store>(() => ({
     health, usage, context, events: visibleEvents, approvals, messages, thinking, wsUp, theme, demoExamples,
-    send, answer, setShield, newThread, loadDemo, runNow,
+    send, answer, setShield, setSecurity, newThread, loadDemo, runNow,
     toggleTheme: () => setTheme((t) => (t === "dark" ? "light" : "dark")),
     clearEvents: () => { setEvents([]); seen.current = new Set(); },
   }), [health, usage, context, visibleEvents, approvals, messages, thinking, wsUp, theme, demoExamples,
-       send, answer, setShield, newThread, loadDemo, runNow]);
+       send, answer, setShield, setSecurity, newThread, loadDemo, runNow]);
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

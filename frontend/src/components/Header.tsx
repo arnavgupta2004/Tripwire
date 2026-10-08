@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useStore } from "../store";
 import { Button, cx } from "./ui/primitives";
+import type { SecurityLevel } from "../types";
 
 export type Screen = "assistant" | "memory" | "routines" | "evidence";
 const TABS: { id: Screen; label: string }[] = [
@@ -28,7 +29,7 @@ function UsageMeter() {
 }
 
 export function Header({ screen, onNavigate }: { screen: Screen; onNavigate: (s: Screen) => void }) {
-  const { health, theme, toggleTheme, setShield, wsUp } = useStore();
+  const { health, theme, toggleTheme, setShield, setSecurity, wsUp } = useStore();
   const [busy, setBusy] = useState(false);
   const protectedMode = health?.mode !== "naive";
   const demo = health?.demo_mode;
@@ -54,6 +55,11 @@ export function Header({ screen, onNavigate }: { screen: Screen; onNavigate: (s:
           </button>
         )}
       </div>
+
+      {protectedMode && health && (
+        <SecurityBar level={health.security ?? "standard"} onChange={setSecurity}
+                     onEvidence={() => onNavigate("evidence")} />
+      )}
 
       <div className="flex items-center justify-between gap-3 border-b border-line bg-surface-raised px-4 py-2">
         <div className="flex items-center gap-2">
@@ -82,6 +88,40 @@ export function Header({ screen, onNavigate }: { screen: Screen; onNavigate: (s:
         </div>
       </div>
     </header>
+  );
+}
+
+const SECURITY_COPY: Record<SecurityLevel, string> = {
+  standard: "The gateway checks every action. Held-out benchmark: 5.0% attack success, 70% of tasks completed.",
+  high: "Also screens what web pages can say to the assistant. Stopped every held-out attack, but drops detail more often.",
+};
+
+function SecurityBar({ level, onChange, onEvidence }: {
+  level: SecurityLevel; onChange: (l: SecurityLevel) => Promise<string | null>; onEvidence: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const pick = async (l: SecurityLevel) => {
+    if (l === level) return;
+    setBusy(true);
+    await onChange(l);
+    setBusy(false);
+  };
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-brand-soft/40 px-4 py-1.5 text-xs">
+      <div role="radiogroup" aria-label="Security level" className="flex rounded-lg border border-line bg-surface-raised p-0.5">
+        {(["standard", "high"] as const).map((l) => (
+          <button key={l} role="radio" aria-checked={level === l} disabled={busy} onClick={() => pick(l)}
+                  className={cx("rounded-md px-2.5 py-0.5 font-medium",
+                    level === l ? "bg-brand text-white" : "text-ink-soft hover:bg-surface-sunken")}>
+            {l === "standard" ? "Standard" : "High-security"}
+          </button>
+        ))}
+      </div>
+      <span className="min-w-0 flex-1 text-ink-soft">
+        {SECURITY_COPY[level]}{" "}
+        <button onClick={onEvidence} className="text-brand underline">See the numbers</button>
+      </span>
+    </div>
   );
 }
 

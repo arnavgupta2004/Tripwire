@@ -3,6 +3,7 @@ import type { Page } from "@playwright/test";
 /** In-browser stand-in for the FastAPI backend. Mutable so tests can drive it. */
 export type MockState = {
   mode: "protected" | "naive";
+  security: "standard" | "high";
   approvals: Record<string, unknown>[];
   answers: { id: string; answer: string }[];
   chatReply: string;
@@ -24,7 +25,8 @@ const ZERO_TIER = { calls: 0, failed: 0, tokens_in: 0, tokens_out: 0, cost_usd: 
 
 export async function mockApi(page: Page, overrides: Partial<MockState> = {}): Promise<MockState> {
   const state: MockState = {
-    mode: "protected", approvals: [], answers: [], chatReply: "Done.", chatEvents: [], ...overrides,
+    mode: "protected", security: "standard", approvals: [], answers: [], chatReply: "Done.", chatEvents: [],
+    ...overrides,
   };
   await page.routeWebSocket("**/api/events", () => { /* accepted, silent */ });
   await page.route("**/api/**", async (route) => {
@@ -32,7 +34,18 @@ export async function mockApi(page: Page, overrides: Partial<MockState> = {}): P
     const path = new URL(req.url()).pathname.replace(/^\/api/, "");
     const json = (body: unknown) => route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
 
-    if (path === "/health") return json({ ok: true, shield: state.mode === "protected", mode: state.mode, demo_mode: true });
+    if (path === "/health") {
+      return json({ ok: true, shield: state.mode === "protected", mode: state.mode, demo_mode: true,
+                    security: state.security });
+    }
+    if (path === "/security") {
+      state.security = JSON.parse(req.postData() || "{}").level;
+      return json({ ok: true, security: state.security });
+    }
+    if (path === "/demo/load") {
+      state.security = "high";
+      return json({ ok: true, suggested_prompt: "Read the article", examples: [], files: [], security: "high" });
+    }
     if (path === "/session/usage") {
       return json({ tiers: { nano: ZERO_TIER, super: ZERO_TIER, ultra: ZERO_TIER }, total_calls: 0,
                     total_cost_usd: 0, headline: "" });

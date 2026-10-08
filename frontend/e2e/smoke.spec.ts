@@ -113,3 +113,33 @@ test("an approved call turns from held to allowed in the graph", async ({ page }
   await expect(page.getByText("A0.user_approved")).toBeVisible();
   await expect(page.getByText("Allowed", { exact: true })).toBeVisible();
 });
+
+test("security level: Standard by default, High-security on demand, demo uses High-security", async ({ page }) => {
+  const state = await mockApi(page);
+  await page.goto("/");
+  const standard = page.getByRole("radio", { name: "Standard" });
+  const high = page.getByRole("radio", { name: "High-security" });
+  await expect(standard).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("The gateway checks every action.")).toBeVisible();
+
+  await high.click();
+  await expect(high).toHaveAttribute("aria-checked", "true");
+  await expect(page.getByText("Also screens what web pages can say")).toBeVisible();
+  expect(state.security).toBe("high");
+
+  await standard.click();
+  await expect(standard).toHaveAttribute("aria-checked", "true");
+  expect(state.security).toBe("standard");
+
+  await page.getByRole("button", { name: "Load demo" }).click();
+  await expect(high).toHaveAttribute("aria-checked", "true");
+
+  await page.getByRole("button", { name: "See the numbers" }).click();
+  await expect(page.getByRole("heading", { name: "Evidence: AgentDojo" })).toBeVisible();
+});
+
+test("the security toggle only shows in Protected mode", async ({ page }) => {
+  await mockApi(page, { mode: "naive" });
+  await page.goto("/");
+  await expect(page.getByRole("radiogroup", { name: "Security level" })).toHaveCount(0);
+});

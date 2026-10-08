@@ -105,6 +105,8 @@ export const api = {
   setShield: (on: boolean) => j<{ ok: boolean; shield: boolean; mode: string; error?: string }>("/shield", {
     method: "POST", body: JSON.stringify({ on }),
   }),
+  setSecurity: (level: "standard" | "high") => j<{ ok: boolean; security: "standard" | "high"; error?: string }>(
+    "/security", { method: "POST", body: JSON.stringify({ level }) }),
   newThread: () => j<{ ok: boolean }>("/thread/new", { method: "POST" }),
   runNow: (topic?: string) => j<{ ok: boolean; reply: string }>("/routines/run_now", { method: "POST", body: JSON.stringify({ topic: topic ?? null }) }),
   loadDemo: () => j<{ ok: boolean; suggested_prompt: string; examples?: { label: string; prompt: string }[];
