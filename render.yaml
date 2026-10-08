@@ -1,0 +1,31 @@
+# Render Blueprint for the public demo (free plan, built from this repo's Dockerfile).
+# Secrets use sync: false, so Render asks for them in the dashboard; they never live in the repo.
+services:
+  - name: tripwire-demo
+    type: web
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    autoDeployTrigger: commit
+    envVars:
+      - key: NEBIUS_API_KEY
+        sync: false
+      - key: SPEND_GIST_TOKEN
+        sync: false
+      - key: PUBLIC_DEMO
+        value: "true"
+      - key: SPEND_STORE
+        value: gist
+      - key: DAILY_SPEND_CAP_USD
+        value: "0.75"
+      - key: LIFETIME_SPEND_CAP_USD
+        value: "15"
+      - key: NEMOTRON_NANO_MODEL
+        value: nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B
+      - key: NEMOTRON_SUPER_MODEL
+        value: nvidia/nemotron-3-super-120b-a12b
+      - key: NEMOTRON_ULTRA_MODEL
+        value: nvidia/Nemotron-3-Ultra-550b-a55b
