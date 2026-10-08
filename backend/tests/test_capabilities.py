@@ -4,7 +4,7 @@ import pytest
 
 from tripwire.decision import Decision, Verdict
 from tripwire.labels import BOTTOM, CallRecord, file_label, join, user_label, web_label
-from tripwire.policy.engine import PolicyEngine, call_facts, record_facts
+from tripwire.policy.engine import PolicyEngine, call_facts, policy_file, record_facts
 from tripwire.tools import Capability, SideEffect, ToolSpec, build_default_registry, status_label
 
 OK = Decision(Verdict.ALLOW, "test", "test")
@@ -26,9 +26,10 @@ def test_exfiltration_chain_fires_for_arbitrary_tool_names(engine):
     history = [ran("vault_read", {"reads_private"}, FILE)]
     f = call_facts("webhook_post", "outbound", "external", join(user_label(), FILE), BOTTOM,
                    capabilities=frozenset({"sends_external"}))
-    d = engine.evaluate(f, history)
+    pending = engine.evaluate(f, history)  # v3: classified
+    assert pending.rule.id == "R3.exfiltration_chain" and "vault_read → webhook_post" in pending.reason
+    d = PolicyEngine.from_yaml(policy_file("strict")).evaluate(f, history)  # strict: blocked outright
     assert (d.verdict, d.rule_id) == (Verdict.BLOCK, "R3.exfiltration_chain")
-    assert "vault_read → webhook_post" in d.reason
 
 
 def test_exfiltration_needs_the_capabilities_not_the_names(engine):

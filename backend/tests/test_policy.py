@@ -7,6 +7,7 @@ from tripwire.policy.engine import (
     PolicyEngine,
     PolicyError,
     call_facts,
+    policy_file,
     record_facts,
 )
 from tripwire.tools import build_default_registry
@@ -20,6 +21,11 @@ OK = Decision(Verdict.ALLOW, "test", "test")
 @pytest.fixture(scope="module")
 def engine() -> PolicyEngine:
     return PolicyEngine.from_yaml()
+
+
+@pytest.fixture
+def strict() -> PolicyEngine:
+    return PolicyEngine.from_yaml(policy_file("strict"))
 
 
 REGISTRY = build_default_registry("1001")
@@ -61,7 +67,8 @@ def test_r4_does_not_apply_to_side_effects(engine):
 # --- R3 composition ----------------------------------------------------------
 
 
-def test_r3_read_file_then_fetch_url_is_exfiltration(engine):
+def test_r3_read_file_then_fetch_url_is_exfiltration(strict):
+    engine = strict
     history = [ran("read_file", "none", FILE)]
     ctx = join(USER, FILE)
     d = engine.evaluate(facts("fetch_url", "outbound", "external", context=ctx), history)
@@ -70,7 +77,8 @@ def test_r3_read_file_then_fetch_url_is_exfiltration(engine):
     assert "read_file → fetch_url" in d.reason
 
 
-def test_r3_exfiltration_allows_gaps_between_steps(engine):
+def test_r3_exfiltration_allows_gaps_between_steps(strict):
+    engine = strict
     history = [
         ran("read_file", "none", FILE),
         ran("tavily_search", "none", WEB),
@@ -181,7 +189,7 @@ def test_r5_search_with_private_context_goes_to_leak_check(engine, tool):
     pending = engine.evaluate(call_facts(tool, "none", None, join(USER, FILE), BOTTOM, egress=True))
     assert isinstance(pending, Classify)
     assert pending.rule.id == "R5.query_egress"
-    assert pending.rule.classifier == "leak"
+    assert pending.rule.classifier == ("leak",)
 
 
 def test_r5_no_leak_allows_and_leak_needs_approval(engine):
@@ -206,7 +214,62 @@ def test_r3_still_wins_over_r5_for_fetch_after_private_read(engine):
     history = [ran("read_file", "none", FILE)]
     f = call_facts("fetch_url", "outbound", "external", join(USER, FILE), BOTTOM, egress=True,
                    capabilities=caps("fetch_url"))
-    assert engine.evaluate(f, history).rule_id == "R3.exfiltration_chain"
+    pending = engine.evaluate(f, history)
+    assert isinstance(pending, Classify) and pending.rule.id == "R3.exfiltration_chain"
+
+
+# --- R3 v3: classified, not a blanket block ------------------------------------
+
+
+def _fetch_after_private_read(engine):
+    history = [ran("read_file", "none", FILE)]
+    f = facts("fetch_url", "outbound", "external", context=join(USER, FILE))
+    return f, engine.evaluate(f, history)
+
+
+def test_v3_r3_runs_both_checks(engine):
+    _, pending = _fetch_after_private_read(engine)
+    assert isinstance(pending, Classify)
+    assert pending.rule.id == "R3.exfiltration_chain" and pending.rule.classifier == ("align", "leak")
+
+
+@pytest.mark.parametrize("aligned, leaking, verdict", [
+    (True, False, Verdict.ALLOW),            # the user asked, nothing private goes out
+    (True, True, Verdict.NEEDS_APPROVAL),    # the user asked, but private data would go out
+    (False, False, Verdict.ESCALATE),        # not asked for: the judge decides
+    (False, True, Verdict.BLOCK),            # not asked for and carries private data
+])
+def test_v3_r3_outcomes(engine, aligned, leaking, verdict):
+    f, pending = _fetch_after_private_read(engine)
+    d = engine.resolve(pending, f, {"aligned": aligned, "leaking": leaking})
+    assert (d.verdict, d.rule_id) == (verdict, "R3.exfiltration_chain")
+
+
+def test_strict_profile_keeps_the_v2_hard_block(strict, engine):
+    _, d = _fetch_after_private_read(strict)
+    assert (d.verdict, d.rule_id) == (Verdict.BLOCK, "R3.exfiltration_chain")
+    assert (strict.version, engine.version) == ("2", "3")
+    assert [r.id for r in strict.rules if r.id != "R3.exfiltration_chain"] == \
+        [r.id for r in engine.rules if r.id != "R3.exfiltration_chain"]  # only R3 differs
+
+
+def test_outcome_needs_its_check():
+    with pytest.raises(PolicyError, match="leak check"):
+        PolicyEngine.from_yaml_text("""
+rules:
+  - id: X
+    then: CLASSIFY
+    reason: r
+    outcomes:
+      - when: {leaking: true}
+        then: BLOCK
+        reason: r
+""")
+
+
+def test_unknown_profile_is_rejected():
+    with pytest.raises(PolicyError):
+        policy_file("lenient")
 
 
 def test_r2_public_outbound_is_not_r2(engine):

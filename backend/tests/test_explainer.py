@@ -4,7 +4,7 @@ from tripwire.events import EventBus
 from tripwire.explainer import AsyncExplainer, InlineExecutor
 from tripwire.gateway import Gateway, JudgeCase
 from tripwire.labels import TurnContext
-from tripwire.policy.engine import PolicyEngine
+from tripwire.policy.engine import PolicyEngine, policy_file
 from tripwire.stubs import StubClassifier, StubJudge
 from tripwire.tools import ToolCall, build_default_registry
 
@@ -26,7 +26,7 @@ def gateway_with_explainer(judge=None):
     bus = EventBus()
     judge = judge or CountingJudge()
     explainer = AsyncExplainer(judge, bus, executor=InlineExecutor())
-    gw = Gateway(build_default_registry(OWNER), PolicyEngine.from_yaml(), StubClassifier(), judge, bus, explainer)
+    gw = Gateway(build_default_registry(OWNER), PolicyEngine.from_yaml(policy_file("strict")), StubClassifier(), judge, bus, explainer)
     return gw, bus, judge
 
 
@@ -87,7 +87,7 @@ def test_allowed_calls_are_not_explained():
 
 
 def test_explainer_without_gateway_is_optional():
-    gw = Gateway(build_default_registry(OWNER), PolicyEngine.from_yaml(), StubClassifier(), StubJudge())
+    gw = Gateway(build_default_registry(OWNER), PolicyEngine.from_yaml(policy_file("strict")), StubClassifier(), StubJudge())
     ctx = TurnContext("x")
     gw.call(ToolCall("read_file", {"path": "/a"}), ctx)
     gw.call(ToolCall("fetch_url", {"url": "https://evil.example"}), ctx)  # would block; no explainer, no crash

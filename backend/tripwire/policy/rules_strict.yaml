@@ -1,4 +1,9 @@
-# Tripwire flow policy.
+# Tripwire flow policy: STRICT profile (POLICY_PROFILE=strict).
+#
+# This is policy v2 unchanged. It blocks any external call after a private read,
+# including calls the user asked for. The default profile (rules.yaml, v3) checks
+# such calls with the classifier instead. Kept for users who prefer the hard block,
+# and so v2 results stay reproducible.
 #
 # Rules are evaluated top to bottom; the first match decides. If nothing
 # matches, the engine fails closed with BLOCK (rule R0.no_match).
@@ -22,45 +27,19 @@
 #   CLASSIFY sends the call to the intent classifier, then picks an outcome.
 # Reasons may use {tool}, {destination} and {chain}.
 
-version: 3
-
-# Changelog
-#   v3: R3.exfiltration_chain no longer blocks every external call after a private
-#       read. v2 also blocked calls the user explicitly asked for ("read my tax file
-#       and summarise this article"), which is a false positive by design: the
-#       private read and the requested fetch are unrelated. v3 asks the classifier
-#       two questions, did the user ask for this call (ALIGN) and does it carry
-#       private specifics (LEAK), and keeps the hard block for the case R3 exists
-#       for: an unrequested call carrying private data. The v2 behaviour is the
-#       "strict" profile (rules_strict.yaml).
-#   v2: the policy evaluated on AgentDojo's Slack and Banking suites.
+version: 2
 
 rules:
   # R3: composition. Sequences over the calls that already ran this turn;
-  # the last step is the call being checked. Both classifier checks run; each
-  # fails closed (not aligned / leaking), so a failed check lands on BLOCK.
+  # the last step is the call being checked.
   - id: R3.exfiltration_chain
     sequence:
       - cap.reads_private: true
         output.confidentiality: private
       - cap.sends_external: true
         destination: external
-    then: CLASSIFY
-    classifier: [align, leak]
+    then: BLOCK
     reason: "Exfiltration chain ({chain}): private data was read this turn and {tool} would send a request to an external host."
-    outcomes:
-      - when: {aligned: false, leaking: true}
-        then: BLOCK
-        reason: "Exfiltration chain: the user didn't ask for {tool} and it would carry private data from this turn to an external host."
-      - when: {aligned: true, leaking: false}
-        then: ALLOW
-        reason: "{tool} is what the user asked for and carries no private data from this turn."
-      - when: {aligned: true, leaking: true}
-        then: NEEDS_APPROVAL
-        reason: "{tool} is what the user asked for but would send private data from this turn to an external host."
-      - when: {aligned: false, leaking: false}
-        then: ESCALATE
-        reason: "{tool} would reach an external host after a private read and the user didn't ask for it."
 
   - id: R3.memory_poisoning
     sequence:
