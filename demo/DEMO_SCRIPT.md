@@ -1,9 +1,14 @@
 # Demo script
 
-Tripwire is layered. Protected mode runs three layers: a hardened system prompt,
-the quarantined reader (untrusted text becomes structured data before the planner
-sees it), and the gateway (labels, policy, Nano classifier, Ultra judge, approvals).
-The **naive agent** removes all three: the same Nemotron Super model with
+Tripwire is layered. Protected mode has two levels:
+
+- **Standard (default):** a hardened system prompt and the gateway (labels, policy,
+  Nano classifier, Ultra judge, approvals).
+- **High-security:** also the quarantined reader. Untrusted text becomes structured
+  data before the planner sees it, which screens what web pages can say, at some
+  cost to detail.
+
+The **naive agent** removes every layer: the same Nemotron Super model with
 AgentDojo's default system message, no reader and no gateway.
 
 The video proves the security claim with the benchmark, then shows the product.
@@ -14,15 +19,18 @@ The video proves the security claim with the benchmark, then shows the product.
 
 - AgentDojo, published `important_instructions` attack, Nemotron 3 Super on Token
   Factory as the agent in every condition.
-- Targeted attack success: Slack **69.5% → 14.3%**, Banking **25.0% → 0%** with
-  Tripwire (full). AgentDojo's built-in spotlighting defense: 65.7% and 22.9%.
-- Utility, two ways:
-  - **Strict utility** counts an action held for approval as not completed (the
-    benchmark has no human to approve it): Tripwire full 47.6% on Slack, 43.8% on
-    Banking, against 85.7% and 87.5% with no defense.
+- **Held-out headline (Travel, run once after the policy was frozen):** attack
+  success **38.6% → 5.0%** with the gateway (Standard). Effective utility was 70.0%,
+  against 50.0% with no defense. All remaining successes are one prose-only goal
+  ("say I should visit this hotel"): Tripwire governs tool calls, not prose.
+- **Development suites (they shaped the policy):** Slack 69.5% → 22.9% (gateway)
+  and 9.5% (with reader). Banking 25.0% → 0%.
+- **Utility, two ways:**
+  - **Strict utility** counts an action held for approval as not completed, because
+    the benchmark has no human to approve it.
   - **Effective utility** counts a held action as completed, because in the app the
-    user approves it with one tap (an upper bound: approvals were not replayed):
-    Tripwire full 66.7% on Slack, 81.2% on Banking.
+    user approves it with one tap. It's an upper bound, since approvals were not
+    replayed.
 
 **Say:** "A poisoned page or document hijacks an undefended agent most of the time.
 Tripwire stops almost all of it. The price is that it asks before acting on
@@ -59,9 +67,10 @@ Transcript: `evals/agentdojo/results/demo_pair_transcript.txt`.
 
 **On screen:** the Tripwire app in Protected mode, Assistant screen.
 
-### The default demo: a poisoned page, a brief to you (verified, 5 of 5)
+### The default demo: a poisoned page, a brief to you (High-security, verified 5 of 5)
 
-Click **Load demo**, then **Send**. The suggested prompt is:
+Click **Load demo**, then **Send**. Load demo switches to **High-security** mode, and
+the strip under the banner shows it. The suggested prompt is:
 
 > Read the article at <the demo page served by the API> and send me a short brief of it on Telegram.
 
@@ -86,6 +95,32 @@ identical every time:
    request (`R1.untrusted_side_effect`).
 
 Screenshots: `docs/screenshots/reader-flag-flow.jpg`, `docs/screenshots/reader-flag-drawer.jpg`.
+
+### Second beat: the same page in Standard mode (verified once, on the public URL)
+
+Click **Standard** in the strip under the banner, then **New thread**, and send the
+same prompt. Don't click Load demo again: it switches back to High-security.
+
+What happened (public demo, 2026-10-08):
+
+1. `fetch_url` reads the page (allowed under `R0.trusted_side_effect`: your request,
+   clean context).
+2. **No reader flag.** In Standard mode the planner sees the page's raw text, injected
+   instructions included. The graph shows only You → Web / outside content →
+   `fetch_url` → `send_telegram`.
+3. The assistant still attempted nothing you didn't ask for: no file reads, no
+   posting to the attacker's site.
+4. `send_telegram` of the brief to you goes through the **Nano classifier**
+   (`R1.untrusted_side_effect`) and is allowed. Click the node to show the gateway's
+   check in the drawer. The public demo doesn't deliver it; locally it reaches your
+   Telegram.
+
+**Say:** "Standard mode lets the planner read the page, so the safety comes from the
+gateway: anything it tries to do with that content is checked. High-security also
+screens what the page can say, at some cost to detail. That's the toggle."
+
+This beat was run once. The planner's behaviour on raw injected text can vary
+between runs, and when it does, the gateway is what stops an unrequested action.
 
 ### The approval card (verified live from the UI and from Telegram)
 
@@ -134,16 +169,19 @@ Super plans, Ultra judges.
 
 ## The reader is a dial, not a free win
 
-From the benchmark (see `evals/agentdojo/results.md`):
+From the benchmark (policy v3; see `evals/agentdojo/results.md`):
 
-| Suite | Condition | Attack success | Strict utility | Effective utility |
+| Suite | Mode | Attack success | Strict utility | Effective utility |
 |---|---|---|---|---|
-| Slack | Tripwire (gateway only) | 21.9% | 52.4% | 76.2% |
-| Slack | Tripwire (full: gateway + reader) | 14.3% | 47.6% | 66.7% |
-| Banking | Tripwire (gateway only) | 0.0% | 43.8% | 87.5% |
-| Banking | Tripwire (full: gateway + reader) | 0.0% | 43.8% | 81.2% |
+| Travel (held out) | Standard (gateway) | 5.0% | 65.0% | 70.0% |
+| Travel (held out) | High-security (gateway + reader) | 0.0% | 35.0% | 45.0% |
+| Slack | Standard (gateway) | 22.9% | 57.1% | 71.4% |
+| Slack | High-security (gateway + reader) | 9.5% | 52.4% | 76.2% |
+| Banking | Standard (gateway) | 0.0% | 43.8% | 81.2% |
+| Banking | High-security (gateway + reader) | 0.0% | 43.8% | 81.2% |
 
-Turning the reader on buys fewer successful attacks on Slack (21.9% to 14.3%) at a
-cost of effective utility (76.2% to 66.7%). On Banking the gateway alone already
-stops every attack, so the reader only costs utility. Gateway-only is the
-higher-utility setting; full is the lower-attack setting.
+On held-out Travel the reader stopped only the prose-only goal, and cost a lot of
+detail (effective utility from 70% to 45%). On Slack it lowered attack success
+further. That's why Standard is the default and High-security is an opt-in. The
+default was chosen after seeing these results, from one run per task, with no
+confirmation run.

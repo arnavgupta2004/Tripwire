@@ -49,6 +49,27 @@ every condition. Raw per-run records are in `results/raw/`, the summary in
   endpoints (`sends_external`), so the held-out suite tests the rest of the policy,
   not the v3 change itself.
 
+### Product default: gateway-only (Standard), reader opt-in (High-security)
+
+After the Travel results, Protected mode's default became **Standard**: gateway and
+hardened prompt, no reader. The quarantined reader became an opt-in
+**High-security mode**. The case for this, across all suites (policy v3):
+
+- **The gateway does most of the protecting.** It stopped 6 of 7 Travel goals
+  completely and every Banking attack, and took Slack from 69.5% to 22.9%.
+  Effective utility stayed at 70.0% (Travel), 81.2% (Banking) and 71.4% (Slack).
+- **On the held-out suite, the reader bought only the prose-only goal 6.** In
+  exchange it dropped needed details in 6 of 20 benign tasks: effective utility
+  fell from 70.0% to 45.0%, and utility under attack from 44.3% to 20.7%.
+- **The reader still matters where the gateway can't see.** On Slack it took ASR
+  from 22.9% to 9.5% (attacker-named channels labelled trusted, and "visit this
+  site" goals), and it is the only layer that affects text-only persuasion. Hence
+  an opt-in mode rather than removal.
+
+**Caveat:** this default was chosen after seeing the held-out results, from one run
+per task, with no confirmation run (the eval budget was closed at $17.50). Travel
+is held out for the policy, not for this product decision.
+
 ### Policy v3 on the development suites
 
 Policy v3 changes only `R3.exfiltration_chain`: after a private read, an external

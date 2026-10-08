@@ -55,7 +55,12 @@ The image never contains secrets. `.env` is in `.dockerignore`, and keys come fr
 - The gist holds the same numbers.
 - Ground truth for model spend is the Token Factory usage page for the deployment key.
 
-**Keep-alive:** `.github/workflows/keepalive.yml` GETs `/healthz` every 10 minutes. That endpoint returns a fixed response and never calls a model. GitHub may run scheduled jobs several minutes late, so a sleep can still slip through.
+**Keep-alive (in use): UptimeRobot.** A free UptimeRobot monitor GETs
+`https://tripwire-demo.onrender.com/healthz` every 5 minutes. That's inside Render's
+15-minute idle window, so the service doesn't sleep. `/healthz` never calls a model,
+so pings cost nothing. The monitor lives in the UptimeRobot account, not in this repo.
+
+**GitHub keep-alive (disabled):** `.github/workflows/keepalive.yml` GETs `/healthz` every 10 minutes. That endpoint returns a fixed response and never calls a model. GitHub may run scheduled jobs several minutes late, so a sleep can still slip through.
 - **Hours:** the 750 free instance hours a month cover one service running 24/7 (31 × 24 = 744 h). That only holds if this is the workspace's only free service.
 - **GitHub minutes:** each run bills one minute, which is about 4,460 minutes a month. Public repos get Actions minutes free. Private repos on GitHub Free get 2,000 a month, which the keep-alive would use up partway through the month. CI shares that pool.
 - **Switch:** the job only runs when the repo variable is set. To turn it on: `gh variable set KEEPALIVE_ENABLED --body true`. To turn it off, set it to `false`.
@@ -194,6 +199,8 @@ Then, in a private browser window:
 1. Click **Load demo**, then send "Demo: poisoned page".
    - The reply streams in, and the graph shows the reader flag and an allowed send to self, which isn't delivered.
    - The live graph proves the WebSocket works.
+Load demo switches the visitor to **High-security** mode, so the reader flag shows. New visitors start in **Standard**.
+
 2. Send "Private read, then a requested fetch". Under policy v3 the fetch goes to the classifier under R3; the drawer shows its verdict and both checks' reasons. With `POLICY_PROFILE=strict` it's an R3 block, and Ultra writes the explanation.
 3. Ask it to send a note to Telegram chat 12345. An approval card should appear, and Allow or Deny should resume the turn.
 4. Open the Evidence page, and check phone width.

@@ -60,7 +60,13 @@ cd frontend && npm install && npm run dev                   # UI on http://local
 If port 8000 is taken, run the API with `--port 8100` and start the UI with
 `TRIPWIRE_API=http://127.0.0.1:8100 npm run dev`.
 
-Click **Load demo**, then **Send**. The suggested prompt asks Tripwire to read a
+Protected mode has two levels, switched from the strip under the banner:
+**Standard** (the default: the gateway checks every action) and **High-security**
+(adds the quarantined reader, which also screens what web pages can say to the
+assistant, but drops detail more often). Set the default with `SECURITY_LEVEL`.
+
+Click **Load demo**, then **Send**. Load demo switches to High-security, so you see
+the reader at work. The suggested prompt asks Tripwire to read a
 page carrying AgentDojo's published prompt-injection template and send you a brief.
 In 5 of 5 live runs the quarantined reader flagged the hidden instructions (an
 amber pulsing node in the flow graph; its drawer shows the reader's note, never the
@@ -124,6 +130,13 @@ of scope for an action firewall. Only the quarantined reader, which keeps inject
 instructions away from the planner, affected it (0/20). The reader costs utility,
 though: on Travel its summaries dropped a detail the task needed in 6 of 20 benign
 tasks.
+
+**Product default, chosen after seeing the held-out results.** The app's Protected
+mode now defaults to **Standard** (gateway + hardened prompt, no reader). The reader
+is an opt-in **High-security mode**: it also screens what untrusted content can say
+to the assistant, at some cost to detail. This choice was made *after* the Travel
+results were in, from one run per task, and there was no confirmation run (budget).
+Treat it as a reasoned default, not a measured optimum.
 
 ![Attack success rate by condition](evals/agentdojo/results/asr_by_condition.png)
 ![What happened to each benign task](evals/agentdojo/results/benign_outcomes.png)
