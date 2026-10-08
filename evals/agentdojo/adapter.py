@@ -44,7 +44,7 @@ from tripwire.gateway import Gateway  # noqa: E402
 from tripwire.judge import NemotronJudge  # noqa: E402
 from tripwire.labels import Confidentiality, Integrity, Label, TurnContext  # noqa: E402
 from tripwire.models import ModelRouter  # noqa: E402
-from tripwire.policy.engine import PolicyEngine  # noqa: E402
+from tripwire.policy.engine import PolicyEngine, policy_file  # noqa: E402
 from tripwire.reader import QuarantinedReader  # noqa: E402
 from tripwire.tools import Destination, SideEffect, ToolCall, ToolRegistry, ToolSpec, status_label  # noqa: E402
 
@@ -189,7 +189,8 @@ class TripwireExecutor(BasePipelineElement):
     name = "tripwire"
 
     def __init__(self, suite_name: str, mapping: dict[str, Any], router: ModelRouter, *,
-                 use_reader: bool, trust_mode: str = "team", classifier: Any = None, judge: Any = None) -> None:
+                 use_reader: bool, trust_mode: str = "team", classifier: Any = None, judge: Any = None,
+                 policy: str = "default") -> None:
         assert trust_mode in ("team", "strict")
         self.suite_name = suite_name
         self.tools = mapping["suites"][suite_name]["tools"]
@@ -200,7 +201,9 @@ class TripwireExecutor(BasePipelineElement):
         self._runtime: Any = None
         self._env: Any = None
         self.bus = EventBus(keep=2000)
-        self.gateway = Gateway(self._registry(), PolicyEngine.load(), classifier or NemotronClassifier(router),
+        self.engine = PolicyEngine.load(base=policy_file(policy))
+        self.policy = {"profile": policy, "version": self.engine.version}
+        self.gateway = Gateway(self._registry(), self.engine, classifier or NemotronClassifier(router),
                                judge or NemotronJudge(router), self.bus)
 
     # destinations are resolved against the live environment
@@ -304,7 +307,7 @@ class Built:
 
 
 def build_pipeline(condition: str, suite_name: str, settings: Settings, mapping: dict[str, Any],
-                   trust_mode: str = "team") -> Built:
+                   trust_mode: str = "team", policy: str = "default") -> Built:
     """A fresh pipeline per task, so no state leaks between tasks."""
     if condition not in CONDITIONS:
         raise ValueError(f"condition must be one of {CONDITIONS}")
@@ -326,7 +329,7 @@ def build_pipeline(condition: str, suite_name: str, settings: Settings, mapping:
 
     router = ModelRouter(settings, EventBus(keep=2000))
     executor = TripwireExecutor(suite_name, mapping, router, use_reader=(condition == "tripwire_full"),
-                                trust_mode=trust_mode)
+                                trust_mode=trust_mode, policy=policy)
     pipe = AgentPipeline([SystemMessage(system), InitQuery(), llm, ToolsExecutionLoop([executor, llm])])
     pipe.name = PIPELINE_NAME
     return Built(pipe, client, executor, router)

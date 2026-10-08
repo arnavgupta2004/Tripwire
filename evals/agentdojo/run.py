@@ -4,6 +4,10 @@
   uv run --group eval python evals/agentdojo/run.py --suite slack --condition tripwire_full --mode attack
   ... --trust strict        Tripwire strict trust domain (only the user is self)
   ... --limit 5 --tag dry   a small dry run, written to a separate file
+  ... --policy strict       Tripwire's strict policy profile (v2 behaviour)
+
+Tripwire runs record the policy profile and version. Runs under policy v3 or later
+go to their own files (suffix __policy-v3), so they never mix with v2 results.
 
 Utility mode runs each user task once with no injection. Attack mode runs every
 (user task, injection task) pair with AgentDojo's published `important_instructions`
@@ -28,19 +32,31 @@ from agentdojo.task_suite.load_suites import get_suite  # noqa: E402
 
 from tripwire.config import Settings  # noqa: E402
 from tripwire.models import Pricing  # noqa: E402
+from tripwire.policy.engine import PolicyEngine, policy_file  # noqa: E402
 
 BENCHMARK_VERSION = "v1.2.2"
 ATTACK = "important_instructions"
 RAW = Path(__file__).with_name("results") / "raw"
 
 
-def out_path(suite: str, condition: str, mode: str, trust: str, tag: str) -> Path:
-    name = f"{suite}__{condition}{'__strict' if trust == 'strict' else ''}__{mode}{'__' + tag if tag else ''}.jsonl"
+def policy_suffix(condition: str, profile: str) -> str:
+    """'' for v2 (the original files), else e.g. '__policy-v3' or '__policy-strict-v2'."""
+    if not condition.startswith("tripwire"):
+        return ""
+    version = PolicyEngine.load(base=policy_file(profile)).version
+    if profile == "default":
+        return "" if version == "2" else f"__policy-v{version}"
+    return f"__policy-{profile}-v{version}"
+
+
+def out_path(suite: str, condition: str, mode: str, trust: str, tag: str, policy: str = "default") -> Path:
+    name = (f"{suite}__{condition}{'__strict' if trust == 'strict' else ''}__{mode}"
+            f"{policy_suffix(condition, policy)}{'__' + tag if tag else ''}.jsonl")
     return RAW / name
 
 
-def run_one(suite, condition, settings, mapping, trust, pricing, user_task, injection_task, injections):
-    built = build_pipeline(condition, suite.name, settings, mapping, trust)
+def run_one(suite, condition, settings, mapping, trust, policy, pricing, user_task, injection_task, injections):
+    built = build_pipeline(condition, suite.name, settings, mapping, trust, policy)
     start = time.perf_counter()
     error = None
     try:
@@ -65,6 +81,7 @@ def run_one(suite, condition, settings, mapping, trust, pricing, user_task, inje
         record["tripwire"] = {t: {k: v[k] for k in ("calls", "tokens_in", "tokens_out", "cost_usd")}
                               for t, v in summary["tiers"].items()}
         record["tripwire_seconds"] = round(sum(r.latency_ms for r in built.router.records) / 1000, 2)
+        record["policy"] = built.executor.policy
         trace = built.executor.trace
         record.update(decisions=trace.decisions, held=trace.held, blocked=trace.blocked,
                       reader_calls=trace.reader_calls)
@@ -77,13 +94,14 @@ def run_one(suite, condition, settings, mapping, trust, pricing, user_task, inje
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--suite", required=True, choices=["slack", "banking"])
+    ap.add_argument("--suite", required=True, choices=["slack", "banking", "travel"])
     ap.add_argument("--condition", required=True, choices=CONDITIONS)
     ap.add_argument("--mode", required=True, choices=["utility", "attack"])
     ap.add_argument("--trust", default="team", choices=["team", "strict"])
     ap.add_argument("--limit", type=int, default=None, help="only the first N runs (dry runs)")
     ap.add_argument("--tag", default="", help="suffix for the output file, e.g. dry")
     ap.add_argument("--workers", type=int, default=4)
+    ap.add_argument("--policy", default="default", choices=["default", "strict"])
     args = ap.parse_args()
     if args.trust == "strict" and not args.condition.startswith("tripwire"):
         ap.error("--trust strict only applies to Tripwire conditions")
@@ -109,7 +127,7 @@ def main() -> int:
     if args.limit:
         jobs = jobs[: args.limit]
 
-    path = out_path(args.suite, args.condition, args.mode, args.trust, args.tag)
+    path = out_path(args.suite, args.condition, args.mode, args.trust, args.tag, args.policy)
     path.parent.mkdir(parents=True, exist_ok=True)
     done = set()
     if path.exists():
@@ -123,7 +141,7 @@ def main() -> int:
     lock = threading.Lock()
     total_cost = 0.0
     with ThreadPoolExecutor(max_workers=args.workers) as pool, path.open("a") as out:
-        futures = [pool.submit(run_one, suite, args.condition, settings, mapping, args.trust, pricing, *j)
+        futures = [pool.submit(run_one, suite, args.condition, settings, mapping, args.trust, args.policy, pricing, *j)
                    for j in jobs]
         for i, fut in enumerate(as_completed(futures), 1):
             rec = fut.result()
