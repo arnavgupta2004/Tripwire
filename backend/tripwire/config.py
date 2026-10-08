@@ -44,6 +44,9 @@ class Settings:
     planner_max_steps: int = 8
     planner_tool_mode: str = "native"  # native | json
     context_turns: int = 8  # how many past turns stay in context (and keep their taint)
+    # Protected mode's level: "standard" (gateway + hardened prompt) or "high" (adds the
+    # quarantined reader, which also screens what untrusted content can say; costs detail).
+    security_level: str = "standard"
     policy_profile: str = "default"  # "default" (current rules) or "strict" (v2: hard block after a private read)
     approval_timeout: float = 300.0  # seconds a paused turn waits for an answer before denying
     # Public demo: per-visitor sessions, forced DEMO_MODE, no Telegram, rate limits, spend cap.
@@ -90,6 +93,7 @@ class Settings:
             context_turns=int(e("PLANNER_CONTEXT_TURNS") or 8),
             approval_timeout=float(e("APPROVAL_TIMEOUT_S") or 300),
             policy_profile=(e("POLICY_PROFILE") or "default").strip().lower(),
+            security_level=(e("SECURITY_LEVEL") or "standard").strip().lower(),
             public_demo=_bool(e("PUBLIC_DEMO")),
             daily_spend_cap_usd=float(e("DAILY_SPEND_CAP_USD") or 0.75),
             lifetime_spend_cap_usd=float(e("LIFETIME_SPEND_CAP_USD") or 15.0),

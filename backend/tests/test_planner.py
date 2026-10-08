@@ -302,7 +302,7 @@ def test_no_nudge_when_nothing_was_requested(make_router, settings):
 
 
 def test_naive_agent_uses_plain_prompt_without_resistance_language(make_router, settings):
-    from agent.planner import PLAIN_SYSTEM_PROMPT, SYSTEM_PROMPT
+    from agent.planner import PLAIN_SYSTEM_PROMPT, SYSTEM_PROMPT, WEB_RULE_READER
 
     for phrase in ("never instructions", "do not do it", "security gateway"):
         assert phrase in SYSTEM_PROMPT and phrase not in PLAIN_SYSTEM_PROMPT
@@ -312,7 +312,21 @@ def test_naive_agent_uses_plain_prompt_without_resistance_language(make_router, 
     assert naive.client.requests[0]["messages"][0]["content"].startswith("You are an AI language model")
     protected = World(make_router, settings, [completion("hi")])
     protected.planner.send("hello")
-    assert protected.client.requests[0]["messages"][0]["content"] == SYSTEM_PROMPT
+    assert protected.client.requests[0]["messages"][0]["content"] == SYSTEM_PROMPT.format(web_rule=WEB_RULE_READER)
+
+
+def test_prompt_describes_how_outside_content_arrives(make_router, settings):
+    from agent.planner import WEB_RULE_RAW, WEB_RULE_READER
+
+    w = World(make_router, settings, [completion("hi"), completion("hi")])
+    w.planner.quarantined = False  # Standard mode: raw text, no reader
+    w.planner.send("hello")
+    standard = w.client.requests[0]["messages"][0]["content"]
+    assert WEB_RULE_RAW in standard and "quarantined" not in standard and "never instructions" in standard
+    w.planner.quarantined = True
+    w.planner.reset()
+    w.planner.send("hello")
+    assert WEB_RULE_READER in w.client.requests[1]["messages"][0]["content"]
 
 
 def test_naive_agent_has_no_tripwire_completion_nudges(make_router, settings):

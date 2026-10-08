@@ -35,6 +35,10 @@ class ShieldIn(BaseModel):
     on: bool
 
 
+class SecurityIn(BaseModel):
+    level: str
+
+
 class RunNowIn(BaseModel):
     topic: str | None = None
 
@@ -129,7 +133,7 @@ def create_app(provider: "Session | VisitorSessions", *, settings: Any = None, g
         out: dict[str, Any] = {"ok": True, "demo_mode": settings.demo_mode, "public_demo": public}
         if not public or visitor_of(request):
             session = sess(request)
-            out.update(shield=session.shield, mode=session.mode)
+            out.update(shield=session.shield, mode=session.mode, security=session.security)
         if guard is not None:
             out["budget"] = guard.status()
         return out
@@ -255,6 +259,16 @@ def create_app(provider: "Session | VisitorSessions", *, settings: Any = None, g
         except ValueError as exc:
             return {"ok": False, "error": str(exc)}
         return {"ok": True, "shield": session.shield, "mode": session.mode}
+
+    @app.post("/security")
+    def security(body: SecurityIn, request: Request) -> dict[str, Any]:
+        """Protected mode's level: standard (gateway) or high (gateway + quarantined reader)."""
+        session = sess(request)
+        try:
+            session.set_security(body.level)
+        except ValueError as exc:
+            return {"ok": False, "error": str(exc)}
+        return {"ok": True, "security": session.security}
 
     @app.post("/thread/new")
     def thread_new(request: Request) -> dict[str, Any]:

@@ -163,3 +163,11 @@ def test_demo_load_url_includes_mount_prefix():
     client, sessions, planners, _ = make()
     r = client.post("/demo/load", headers={"X-Tripwire-Visitor": A})
     assert "/demo-pages/informations.html" in r.json()["suggested_prompt"]
+
+
+def test_security_level_is_per_visitor():
+    client, sessions, *_ = make()
+    h = lambda v: {"X-Tripwire-Visitor": v}  # noqa: E731
+    client.post("/security", json={"level": "high"}, headers=h(A))
+    assert client.get("/health", headers=h(A)).json()["security"] == "high"
+    assert client.get("/health", headers=h(B)).json()["security"] == "standard"

@@ -23,6 +23,8 @@ from tripwire.policy.engine import PolicyEngine
 from tripwire.policy.user_rules import UserRuleStore
 from tripwire.tools import ToolCall
 
+
+SECURITY_LEVELS = ("standard", "high")
 log = logging.getLogger(__name__)
 
 Answer = Literal["allow", "deny", "always_deny"]
@@ -173,6 +175,8 @@ class Session:
         self._lock = threading.Lock()
         self._scheduler: Any | None = None
         self.thread_started = time.time()  # UIs show only events from the current thread
+        self.security = "standard"
+        self.set_security(settings.security_level if settings.security_level in SECURITY_LEVELS else "standard")
 
     # --- conversation --------------------------------------------------------
 
@@ -209,7 +213,20 @@ class Session:
             raise ValueError("the naive agent requires DEMO_MODE=true")
         with self._lock:
             self.planner.shield = on
-            self.skills.set_quarantine(on)
+            self._apply_reader()
+
+    def set_security(self, level: str) -> None:
+        """Protected mode's level: "standard" (gateway) or "high" (gateway + quarantined reader)."""
+        if level not in SECURITY_LEVELS:
+            raise ValueError(f"security level must be one of {SECURITY_LEVELS}")
+        with self._lock:
+            self.security = level
+            self._apply_reader()
+
+    def _apply_reader(self) -> None:
+        on = self.planner.shield and self.security == "high"
+        self.skills.set_quarantine(on)
+        self.planner.quarantined = on
 
     @property
     def mode(self) -> str:
@@ -284,6 +301,7 @@ class Session:
         from tripwire.labels import user_label, web_label
 
         self.new_thread()
+        self.set_security("high")  # the demo shows the reader flagging the page
         mem = self.skills.memory
         for fact in mem.all():
             mem.forget(fact.id)
@@ -302,6 +320,7 @@ class Session:
                 {"label": "Private read, then a requested fetch", "prompt": self.STRICT_PROMPT.format(page=page)},
             ],
             "files": self.skills.files.paths,
+            "security": self.security,
         }
 
     def run_brief(self, topic: str | None = None) -> Outcome:

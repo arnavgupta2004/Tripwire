@@ -259,11 +259,44 @@ def test_run_brief_uses_stored_topic():
 
 def test_switching_to_naive_turns_off_every_layer():
     s, planner, _ = make_session([])
+    s.set_security("high")
     s.set_shield(False)
     assert s.mode == "naive" and planner.shield is False
     assert s.skills.fetcher.reader.quarantined is False  # raw page text
     s.set_shield(True)
-    assert s.mode == "protected" and s.skills.fetcher.reader.quarantined is True
+    assert s.mode == "protected" and s.skills.fetcher.reader.quarantined is True  # high-security returns
+
+
+def test_standard_is_the_default_and_has_no_reader():
+    s, planner, _ = make_session([])
+    assert s.security == "standard" and s.mode == "protected"
+    assert s.skills.fetcher.reader.quarantined is False and planner.quarantined is False
+
+
+def test_high_security_adds_the_reader_and_standard_removes_it():
+    s, planner, _ = make_session([])
+    s.set_security("high")
+    assert s.skills.fetcher.reader.quarantined is True and planner.quarantined is True
+    s.set_security("standard")
+    assert s.skills.fetcher.reader.quarantined is False and planner.quarantined is False
+
+
+def test_high_security_has_no_effect_on_the_naive_agent():
+    s, planner, _ = make_session([])
+    s.set_shield(False)
+    s.set_security("high")
+    assert s.skills.fetcher.reader.quarantined is False and s.security == "high"
+
+
+def test_unknown_security_level_is_rejected():
+    s, _, _ = make_session([])
+    with pytest.raises(ValueError):
+        s.set_security("paranoid")
+
+
+def test_demo_runs_in_high_security():
+    s, _, _ = make_session([])
+    assert s.seed_demo()["security"] == "high" and s.skills.fetcher.reader.quarantined is True
 
 
 def test_seed_demo_resets_and_seeds():

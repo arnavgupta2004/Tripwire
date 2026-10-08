@@ -82,6 +82,16 @@ def test_shield_toggle_and_demo_guard():
     assert body["ok"] is False and "DEMO_MODE" in body["error"]
 
 
+def test_security_level_endpoint():
+    session, client = build([])
+    assert client.get("/health").json()["security"] == "standard"
+    assert client.post("/security", json={"level": "high"}).json() == {"ok": True, "security": "high"}
+    assert session.skills.fetcher.reader.quarantined is True
+    assert client.get("/health").json()["security"] == "high"
+    bad = client.post("/security", json={"level": "max"}).json()
+    assert bad["ok"] is False and session.security == "high"
+
+
 def test_thread_new():
     session, client = build([])
     assert client.post("/thread/new").json() == {"ok": True}
