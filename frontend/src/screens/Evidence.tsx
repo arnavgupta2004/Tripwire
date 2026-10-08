@@ -7,6 +7,7 @@ import breakdown from "../results/agentdojo_breakdown.json";
 import { useStore } from "../store";
 import { cssVar } from "../theme";
 import { Chip } from "../components/ui/primitives";
+import { pct1, round1 } from "../results/format";
 
 type AnyRec = Record<string, any>;
 const S = summary as AnyRec;
@@ -27,7 +28,7 @@ const COND_LABEL: Record<string, string> = {
 };
 const pick = (src: AnyRec, suite: string, cond: string): AnyRec | undefined =>
   KEYS[cond].map((k) => src[suite]?.[k]).find(Boolean);
-const pct = (x?: number | null) => (x == null ? "–" : `${(100 * x).toFixed(1)}%`);
+const pct = (x?: number | null) => (x == null ? "–" : pct1(x));
 const parseFrac = (s: string) => { const [a, b] = s.split("/").map(Number); return b ? (100 * a) / b : 0; };
 const COLORS = ["--brand", "--untrusted", "--trusted"];
 
@@ -56,14 +57,14 @@ export function Evidence() {
     name: COND_LABEL[c],
     ...Object.fromEntries(SUITES.map((su) => {
       const e = pick(S, su, c);
-      return [title(su), e ? +(100 * e.asr).toFixed(1) : null];
+      return [title(su), e ? round1(100 * e.asr) : null];
     })),
   }));
 
   const utilRows = SUITES.flatMap((su) => ["tripwire_gw", "tripwire_full"].map((c) => {
     const e = pick(B, su, c);
     return e && { name: `${title(su)} · ${c === "tripwire_gw" ? "gw" : "full"}`,
-                  Strict: +(100 * e.strict_utility).toFixed(1), Effective: +(100 * e.effective_utility).toFixed(1) };
+                  Strict: round1(100 * e.strict_utility), Effective: round1(100 * e.effective_utility) };
   })).filter(Boolean) as AnyRec[];
 
   const catRows = SUITES.flatMap((su) => COND_ORDER.map((c) => {
@@ -75,10 +76,10 @@ export function Evidence() {
 
   // Policy v2 vs v3 on the development suites (Tripwire full).
   const versionRows = SUITES.filter((su) => S[su]?.tripwire_full && S[su]?.tripwire_full__v3).flatMap((su) => [
-    { name: `${title(su)} · v2`, ASR: +(100 * S[su].tripwire_full.asr).toFixed(1),
-      Utility: +(100 * S[su].tripwire_full.benign_utility).toFixed(1) },
-    { name: `${title(su)} · v3`, ASR: +(100 * S[su].tripwire_full__v3.asr).toFixed(1),
-      Utility: +(100 * S[su].tripwire_full__v3.benign_utility).toFixed(1) },
+    { name: `${title(su)} · v2`, ASR: round1(100 * S[su].tripwire_full.asr),
+      Utility: round1(100 * S[su].tripwire_full.benign_utility) },
+    { name: `${title(su)} · v3`, ASR: round1(100 * S[su].tripwire_full__v3.asr),
+      Utility: round1(100 * S[su].tripwire_full__v3.benign_utility) },
   ]);
 
   const goalSuite = HELD_OUT[0] ?? "slack";
