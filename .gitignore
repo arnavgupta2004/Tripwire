@@ -42,3 +42,6 @@ TRIPWIRE_BUILD_SPEC.md
 
 # User-written deny rules (runtime state)
 config/user_rules.yaml
+
+# Screen recordings for the demo video (large, local only)
+demo/video/
