@@ -16,14 +16,25 @@ import matplotlib.pyplot as plt  # noqa: E402
 HERE = Path(__file__).resolve().parent
 RAW = HERE / "results" / "raw"
 OUT = HERE / "results"
-SUITES = ("slack", "banking")
-CONDITIONS = [("none", "team", "No defense"), ("spotlighting", "team", "Spotlighting"),
-              ("tripwire_gw", "team", "Tripwire (gateway)"), ("tripwire_full", "team", "Tripwire (full)"),
-              ("tripwire_full", "strict", "Tripwire (full, strict trust)")]
+SUITES = ("slack", "banking", "travel")
+# Slack and Banking informed the policy (v2 was built on them, v3's change was argued
+# from a demo case and checked on them), so they are development suites. Travel was
+# never run before policy v3 and its mapping were frozen: it is held out.
+SUITE_ROLE = {"slack": "development", "banking": "development", "travel": "held-out"}
+# (condition, trust domain, policy file suffix, label). v2 runs keep their original files.
+CONDITIONS = [("none", "team", "", "No defense"), ("spotlighting", "team", "", "Spotlighting"),
+              ("tripwire_gw", "team", "", "Tripwire (gateway, v2)"), ("tripwire_full", "team", "", "Tripwire (full, v2)"),
+              ("tripwire_full", "strict", "", "Tripwire (full, v2, strict trust)"),
+              ("tripwire_gw", "team", "__policy-v3", "Tripwire (gateway, v3)"),
+              ("tripwire_full", "team", "__policy-v3", "Tripwire (full, v3)")]
 
 
-def load(suite: str, condition: str, mode: str, trust: str = "team") -> list[dict]:
-    path = RAW / f"{suite}__{condition}{'__strict' if trust == 'strict' else ''}__{mode}.jsonl"
+def cond_key(condition: str, trust: str, policy: str) -> str:
+    return f"{condition}{'__strict' if trust == 'strict' else ''}{policy.replace('__policy-', '__')}"
+
+
+def load(suite: str, condition: str, mode: str, trust: str = "team", policy: str = "") -> list[dict]:
+    path = RAW / f"{suite}__{condition}{'__strict' if trust == 'strict' else ''}__{mode}{policy}.jsonl"
     if not path.exists():
         return []
     rows: dict[tuple, dict] = {}
@@ -72,9 +83,9 @@ def summarize() -> dict:
         base_lat_u = median([r["seconds"] for r in base_u.values()])
         base_lat_a = median([r["seconds"] for r in base_a.values()])
         suite_out = {}
-        for condition, trust, label in CONDITIONS:
-            util = load(suite, condition, "utility", trust)
-            att = load(suite, condition, "attack", trust)
+        for condition, trust, policy, label in CONDITIONS:
+            util = load(suite, condition, "utility", trust, policy)
+            att = load(suite, condition, "attack", trust, policy)
             if not util and not att:
                 continue
             if trust == "strict" and not util:
@@ -83,6 +94,7 @@ def summarize() -> dict:
                 util_rows = util
             entry = {
                 "label": label, "condition": condition, "trust": trust,
+                "policy": "v3" if policy else ("v2" if condition.startswith("tripwire") else None),
                 "n_utility": len(util_rows), "n_attack": len(att),
                 "benign_utility": rate(util_rows, "utility"),
                 "utility_under_attack": rate(att, "utility"),
@@ -110,8 +122,9 @@ def summarize() -> dict:
             for r in att:
                 by_injection[r["injection_task"]].append(r["attack_success"])
             entry["asr_by_injection_task"] = {k: f"{sum(v)}/{len(v)}" for k, v in sorted(by_injection.items())}
-            suite_out[f"{condition}{'__strict' if trust == 'strict' else ''}"] = entry
-        out[suite] = suite_out
+            suite_out[cond_key(condition, trust, policy)] = entry
+        if suite_out:
+            out[suite] = {"role": SUITE_ROLE[suite], **suite_out}
     return out
 
 
@@ -128,26 +141,27 @@ def money(x: float | None) -> str:
 
 
 def chart(summary: dict, metric: str, title: str, filename: str) -> None:
-    labels = [label for _, _, label in CONDITIONS]
-    fig, ax = plt.subplots(figsize=(9, 4.2))
-    width = 0.38
-    for i, suite in enumerate(SUITES):
+    labels = [label for *_, label in CONDITIONS]
+    fig, ax = plt.subplots(figsize=(12, 4.6))
+    suites = [s for s in SUITES if s in summary]
+    width = 0.8 / len(suites)
+    for i, suite in enumerate(suites):
         vals: list[float | None] = []
-        for condition, trust, _ in CONDITIONS:
-            e = summary.get(suite, {}).get(f"{condition}{'__strict' if trust == 'strict' else ''}")
+        for condition, trust, policy, _ in CONDITIONS:
+            e = summary.get(suite, {}).get(cond_key(condition, trust, policy))
             v = e.get(metric) if e else None
             if e and metric == "benign_utility" and not e.get("n_utility"):
                 v = None  # the strict variant was only run on attacked tasks
             vals.append(None if v is None else 100 * v)
-        xs = [x + (i - 0.5) * width for x in range(len(labels))]
-        bars = ax.bar(xs, [0 if v is None else v for v in vals], width, label=suite.title(),
-                      color=["#3b6fb6", "#d98c2b"][i])
+        xs = [x + (i - (len(suites) - 1) / 2) * width for x in range(len(labels))]
+        bars = ax.bar(xs, [0 if v is None else v for v in vals], width,
+                      label=f"{suite.title()} ({SUITE_ROLE[suite]})", color=["#3b6fb6", "#d98c2b", "#3b8f5a"][i])
         for b, v in zip(bars, vals):
             text = "not run" if v is None else f"{v:.0f}%"
             ax.text(b.get_x() + b.get_width() / 2, (0 if v is None else v) + 1, text, ha="center",
                     fontsize=7 if v is None else 8, color="#777" if v is None else "black")
     ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels(labels, rotation=12, fontsize=9)
+    ax.set_xticklabels(labels, rotation=14, fontsize=8, ha="right")
     ax.set_ylim(0, 105)
     ax.set_ylabel("%")
     ax.set_title(title)
@@ -161,10 +175,10 @@ def chart(summary: dict, metric: str, title: str, filename: str) -> None:
 def table(summary: dict) -> str:
     lines = []
     for suite in SUITES:
-        rows = summary.get(suite, {})
+        rows = {k: v for k, v in summary.get(suite, {}).items() if k != "role"}
         if not rows:
             continue
-        lines += [f"### {suite.title()}", "",
+        lines += [f"### {suite.title()} ({SUITE_ROLE[suite]})", "",
                   "| Condition | Strict utility (benign) | Strict utility under attack | Targeted ASR | Added median latency / task (benign, attacked) | Mean cost / task (benign, attacked) |",
                   "|---|---|---|---|---|---|"]
         for key, e in rows.items():
@@ -177,8 +191,10 @@ def table(summary: dict) -> str:
     return "\n".join(lines)
 
 
-BREAKDOWN_CONDITIONS = [("none", "No defense"), ("spotlighting", "Spotlighting"),
-                        ("tripwire_gw", "Tripwire (gateway)"), ("tripwire_full", "Tripwire (full)")]
+BREAKDOWN_CONDITIONS = [("none", "", "No defense"), ("spotlighting", "", "Spotlighting"),
+                        ("tripwire_gw", "", "Tripwire (gateway, v2)"), ("tripwire_full", "", "Tripwire (full, v2)"),
+                        ("tripwire_gw", "__policy-v3", "Tripwire (gateway, v3)"),
+                        ("tripwire_full", "__policy-v3", "Tripwire (full, v3)")]
 CATEGORIES = ["completed", "held", "hard_blocked", "reader_dropped", "other"]
 CATEGORY_LABELS = {"completed": "Completed", "held": "Held for approval", "hard_blocked": "Hard blocked",
                    "reader_dropped": "Reader dropped detail", "other": "Other"}
@@ -203,10 +219,10 @@ def breakdown() -> dict:
     """Benign-run outcome categories per suite and condition, plus effective utility."""
     out: dict = {}
     for suite in SUITES:
-        gw_completed = {r["user_task"] for r in load(suite, "tripwire_gw", "utility") if r["utility"]}
         out[suite] = {}
-        for condition, label in BREAKDOWN_CONDITIONS:
-            rows = load(suite, condition, "utility")
+        for condition, policy, label in BREAKDOWN_CONDITIONS:
+            gw_completed = {r["user_task"] for r in load(suite, "tripwire_gw", "utility", "team", policy) if r["utility"]}
+            rows = load(suite, condition, "utility", "team", policy)
             if not rows:
                 continue
             counts = Counter(classify(r, gw_completed, condition) for r in rows)
@@ -214,13 +230,15 @@ def breakdown() -> dict:
             for r in rows:
                 examples[classify(r, gw_completed, condition)].append(r["user_task"])
             n = len(rows)
-            out[suite][condition] = {
+            out[suite][cond_key(condition, "team", policy)] = {
                 "label": label, "n": n, **{c: counts.get(c, 0) for c in CATEGORIES},
                 "strict_utility": counts.get("completed", 0) / n,
                 "effective_utility": (counts.get("completed", 0) + counts.get("held", 0)) / n,
                 "tasks": {c: sorted(v, key=lambda t: int(t.split("_")[-1])) for c, v in examples.items()
                           if c != "completed"},
             }
+        if not out[suite]:
+            del out[suite]
     return out
 
 
@@ -239,7 +257,7 @@ def breakdown_chart(b: dict) -> None:
     colors = {"completed": "#3b8f5a", "held": "#e3b341", "hard_blocked": "#c94c4c",
               "reader_dropped": "#7d68b5", "other": "#9aa0a6"}
     bars = [(f"{suite.title()}\n{e['label']}", e) for suite, rows in b.items() for e in rows.values()]
-    fig, ax = plt.subplots(figsize=(11, 4.6))
+    fig, ax = plt.subplots(figsize=(max(11, 0.9 * len(bars)), 4.8))
     xs = range(len(bars))
     bottoms = [0.0] * len(bars)
     for cat in CATEGORIES:
@@ -250,7 +268,7 @@ def breakdown_chart(b: dict) -> None:
                 ax.text(x, b0 + v / 2, f"{v:.0f}%", ha="center", va="center", fontsize=7, color="white")
         bottoms = [b0 + v for b0, v in zip(bottoms, vals)]
     ax.set_xticks(list(xs))
-    ax.set_xticklabels([name for name, _ in bars], fontsize=8)
+    ax.set_xticklabels([name for name, _ in bars], fontsize=7, rotation=30, ha="right")
     ax.set_ylim(0, 100)
     ax.set_ylabel("% of benign tasks")
     ax.set_title("What happened to each benign task")
@@ -277,7 +295,7 @@ def main() -> None:
     print(table(summary))
     for suite, rows in summary.items():
         for key, e in rows.items():
-            if "stopping_rule" in e:
+            if isinstance(e, dict) and "stopping_rule" in e:
                 print(suite, key, "benign failures:", e["benign_failures_vs_none"], "| stopped by:", e["stopping_rule"])
 
 
