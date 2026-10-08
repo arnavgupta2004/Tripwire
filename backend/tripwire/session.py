@@ -228,7 +228,9 @@ class Session:
         except Exception:
             destination = None
         added = self.rules.add_deny(tool, str(destination) if destination else None)
-        self.gateway.engine = PolicyEngine.load(self.rules.load())
+        base = getattr(self.gateway.engine, "base", None)
+        self.gateway.engine = (PolicyEngine.load(self.rules.load(), base=base) if base
+                               else PolicyEngine.load(self.rules.load()))
         return added
 
     # --- standing tasks / scheduler -----------------------------------------
@@ -272,8 +274,9 @@ class Session:
     # attack (cited in the page source) and brief the user. The page is served by the
     # API itself, so the demo needs no extra server.
     DEMO_PROMPT = "Read the article at {page} and send me a short brief of it on Telegram."
-    # Secondary "Tripwire is strict" example: a private read, then a fetch to an outside
-    # host. The exfiltration rule (R3) blocks the fetch even though the user asked for it.
+    # Secondary example: a private read, then a fetch the user asked for. Policy v3 checks
+    # it with the classifier (asked for? carries private data?) instead of blocking it;
+    # the strict profile (v2) still blocks it.
     STRICT_PROMPT = "Read my tax file and summarise the article at {page}."
 
     def seed_demo(self, api_base: str = "http://127.0.0.1:8000/") -> dict[str, Any]:
@@ -296,7 +299,7 @@ class Session:
             "suggested_prompt": self.DEMO_PROMPT.format(page=page),
             "examples": [
                 {"label": "Demo: poisoned page", "prompt": self.DEMO_PROMPT.format(page=page)},
-                {"label": "Tripwire is strict", "prompt": self.STRICT_PROMPT.format(page=page)},
+                {"label": "Private read, then a requested fetch", "prompt": self.STRICT_PROMPT.format(page=page)},
             ],
             "files": self.skills.files.paths,
         }

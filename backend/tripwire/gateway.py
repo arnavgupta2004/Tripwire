@@ -243,13 +243,18 @@ class Gateway:
 
         result = self.engine.evaluate(facts, history)
         if isinstance(result, Classify):
-            if result.rule.classifier == "leak":
+            signals: dict[str, bool] = {}
+            rationales: list[str] = []
+            if "align" in result.rule.classifier:
+                intent = self.classifier.classify(call, instruction, facts)
+                signals["aligned"] = intent.aligned
+                rationales.append(intent.rationale)
+            if "leak" in result.rule.classifier:
                 private_texts = [str(v.value) for v in ctx.private_values()]
                 leak = self.classifier.check_leak(call, private_texts, facts)
-                signals, rationale = {"leaking": leak.leaking}, leak.rationale
-            else:
-                intent = self.classifier.classify(call, instruction, facts)
-                signals, rationale = {"aligned": intent.aligned}, intent.rationale
+                signals["leaking"] = leak.leaking
+                rationales.append(leak.rationale)
+            rationale = " ".join(rationales)
             models.append(self.classifier.tier)
             resolved = self.engine.resolve(result, facts, signals)
             result = Decision(

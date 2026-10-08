@@ -16,6 +16,9 @@ from tripwire.decision import Decision, Verdict
 from tripwire.labels import CallRecord, Label
 
 DEFAULT_RULES = Path(__file__).with_name("rules.yaml")
+# Policy profiles: "default" is the current policy; "strict" keeps v2's hard block
+# on any external call after a private read.
+PROFILES = {"default": DEFAULT_RULES, "strict": Path(__file__).with_name("rules_strict.yaml")}
 CLASSIFY = "CLASSIFY"
 
 Facts = Mapping[str, str]
@@ -46,6 +49,12 @@ CLASSIFIER_MODES = ("align", "leak")
 
 class PolicyError(ValueError):
     pass
+
+
+def policy_file(profile: str = "default") -> Path:
+    if profile not in PROFILES:
+        raise PolicyError(f"unknown policy profile {profile!r}; choose one of {sorted(PROFILES)}")
+    return PROFILES[profile]
 
 
 # --- facts -----------------------------------------------------------------
@@ -123,7 +132,8 @@ class Rule:
     unless: Condition | None = None
     sequence: tuple[Condition, ...] = ()
     outcomes: tuple[Outcome, ...] = ()
-    classifier: str = "align"  # CLASSIFY rules: "align" (intent) or "leak" (query egress)
+    # CLASSIFY rules: which checks to run, "align" (intent) and/or "leak" (private specifics)
+    classifier: tuple[str, ...] = ("align",)
 
 
 @dataclass(frozen=True)
@@ -203,9 +213,15 @@ def _parse_rule(raw: Mapping[str, Any]) -> Rule:
         raise PolicyError(f"{where}: CLASSIFY rules need outcomes")
     if outcomes and then != CLASSIFY:
         raise PolicyError(f"{where}: only CLASSIFY rules may have outcomes")
-    classifier = raw.get("classifier", "align")
-    if classifier not in CLASSIFIER_MODES:
-        raise PolicyError(f"{where}: 'classifier' must be one of {CLASSIFIER_MODES}")
+    raw_modes = raw.get("classifier", "align")
+    classifier = tuple(raw_modes) if isinstance(raw_modes, list) else (raw_modes,)
+    if not classifier or any(m not in CLASSIFIER_MODES for m in classifier) or len(set(classifier)) != len(classifier):
+        raise PolicyError(f"{where}: 'classifier' must be one or more of {CLASSIFIER_MODES}")
+    signals_needed = {"aligned": "align", "leaking": "leak"}
+    for out in outcomes:
+        for key, mode in signals_needed.items():
+            if key in out.when and mode not in classifier:
+                raise PolicyError(f"{where}: an outcome tests '{key}' but the rule doesn't run the {mode} check")
 
     return Rule(
         id=rule_id,
@@ -233,11 +249,13 @@ def _find_chain(steps: Sequence[Condition], history: Sequence[Facts]) -> list[Fa
 
 
 class PolicyEngine:
-    def __init__(self, rules: Sequence[Rule]) -> None:
+    def __init__(self, rules: Sequence[Rule], *, version: str = "", base: Path | None = None) -> None:
         ids = [r.id for r in rules]
         if len(ids) != len(set(ids)):
             raise PolicyError("rule ids must be unique")
         self.rules = tuple(rules)
+        self.version = version  # the policy file's `version:`, recorded with eval runs
+        self.base = base  # the built-in rules file, so a reload keeps the same profile
 
     @classmethod
     def from_yaml_text(cls, text: str) -> "PolicyEngine":
@@ -245,7 +263,7 @@ class PolicyEngine:
         raw_rules = doc.get("rules")
         if not isinstance(raw_rules, list) or not raw_rules:
             raise PolicyError("policy must define a non-empty 'rules' list")
-        return cls([_parse_rule(r) for r in raw_rules])
+        return cls([_parse_rule(r) for r in raw_rules], version=str(doc.get("version", "")))
 
     @classmethod
     def from_yaml(cls, path: Path | str = DEFAULT_RULES) -> "PolicyEngine":
@@ -259,7 +277,7 @@ class PolicyEngine:
         if not isinstance(base_rules, list) or not base_rules:
             raise PolicyError("policy must define a non-empty 'rules' list")
         rules = [_parse_rule(r) for r in user_rules] + [_parse_rule(r) for r in base_rules]
-        return cls(rules)
+        return cls(rules, version=str(doc.get("version", "")), base=Path(base))
 
     def evaluate(self, facts: Facts, history: Sequence[Facts] = ()) -> Decision | Classify:
         """First matching rule wins. `history` holds facts of calls that ran this turn."""

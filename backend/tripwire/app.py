@@ -9,7 +9,7 @@ from tripwire.explainer import AsyncExplainer
 from tripwire.gateway import Gateway
 from tripwire.judge import NemotronJudge
 from tripwire.models import ModelRouter
-from tripwire.policy.engine import PolicyEngine
+from tripwire.policy.engine import PolicyEngine, policy_file
 from tripwire.policy.user_rules import UserRuleStore
 from tripwire.session import Session
 
@@ -22,7 +22,7 @@ def build_session(settings: Settings, *, shield: bool = True, max_steps: int | N
     # Protected: hardened prompt + quarantined reader + gateway. Naive agent: all three off.
     skills.set_quarantine(shield)
     rules_store = UserRuleStore(rules_path) if rules_path is not None else UserRuleStore()
-    engine = PolicyEngine.load(rules_store.load())
+    engine = PolicyEngine.load(rules_store.load(), base=policy_file(settings.policy_profile))
     judge = NemotronJudge(router)
     explainer = AsyncExplainer(judge, bus) if explain_blocks else None
     gateway = Gateway(skills.registry, engine, NemotronClassifier(router), judge, bus, explainer)
