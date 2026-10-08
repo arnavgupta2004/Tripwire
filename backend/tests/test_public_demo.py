@@ -4,7 +4,7 @@ from dataclasses import replace
 
 from fastapi.testclient import TestClient
 
-from api.main import CAP_MESSAGE, LIFETIME_CAP_MESSAGE, create_app
+from api.main import CAP_MESSAGE, LIFETIME_CAP_MESSAGE, STATE_MESSAGE, create_app
 from api.visitors import PUBLIC_SELF_CHAT, VisitorSessions, public_settings
 from tests.test_api import FakeRouter
 from tests.test_session import FakePlanner, _settings, _skills, done
@@ -110,6 +110,25 @@ def test_lifetime_cap_has_its_own_message():
     guard.add(0.02)
     assert LIFETIME_CAP_MESSAGE[:40] in chat(client, A)
     assert client.get("/health").json()["budget"]["lifetime_cap_usd"] == 0.01
+
+
+def test_unsaveable_spend_pauses_chat_with_its_own_message():
+    class Broken:
+        healthy = False
+
+        def load(self):
+            return None
+
+        def save(self, state, *, urgent=False):
+            pass
+
+        def flush(self):
+            pass
+
+    client, sessions, planners, guard = make()
+    guard.store = Broken()
+    assert STATE_MESSAGE[:40] in chat(client, A)
+    assert A not in planners or len(planners[A].script) == 20
 
 
 def test_spend_cap_hit_mid_turn_gives_the_same_message():

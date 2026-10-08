@@ -52,6 +52,10 @@ class Settings:
     chat_rate_per_visitor: int = 8  # turns per 10 minutes per visitor
     chat_rate_global: int = 60  # turns per 10 minutes across all visitors
     max_visitors: int = 200
+    # Where the spend caps persist: "file" (DATA_DIR/spend.json on a volume) or "gist" (a secret GitHub gist).
+    spend_store: str = "file"
+    spend_gist_token: str = field(default="", repr=False)
+    spend_gist_id: str = ""
 
     @classmethod
     def from_env(cls, env_file: Path | None = REPO_ROOT / ".env") -> "Settings":
@@ -90,6 +94,9 @@ class Settings:
             chat_rate_per_visitor=int(e("CHAT_RATE_PER_VISITOR") or 8),
             chat_rate_global=int(e("CHAT_RATE_GLOBAL") or 60),
             max_visitors=int(e("MAX_VISITORS") or 200),
+            spend_store=(e("SPEND_STORE") or "file").strip().lower(),
+            spend_gist_token=(e("SPEND_GIST_TOKEN") or "").strip(),
+            spend_gist_id=(e("SPEND_GIST_ID") or "").strip(),
         )
 
     @property

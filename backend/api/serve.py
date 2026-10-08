@@ -7,6 +7,7 @@ and a daily spend cap; otherwise it is the single-user app (Telegram, scheduler)
 """
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
@@ -22,18 +23,31 @@ def build() -> FastAPI:
     if settings.public_demo:
         from api.main import create_app
         from api.visitors import VisitorSessions, public_factory
-        from tripwire.guard import SpendGuard
+        from tripwire.guard import FileSpendStore, GistSpendStore, SpendGuard
 
-        guard = SpendGuard(settings.daily_spend_cap_usd, settings.data_dir / "spend.json",
-                           lifetime_cap_usd=settings.lifetime_spend_cap_usd)
+        if settings.spend_store == "gist":
+            store = GistSpendStore(settings.spend_gist_token, settings.spend_gist_id)
+        elif settings.spend_store == "file":
+            store = FileSpendStore(settings.data_dir / "spend.json")
+        else:
+            raise ValueError(f"SPEND_STORE must be file or gist, got {settings.spend_store!r}")
+        guard = SpendGuard(settings.daily_spend_cap_usd, lifetime_cap_usd=settings.lifetime_spend_cap_usd,
+                           store=store)
         sessions = VisitorSessions(public_factory(settings, guard), max_sessions=settings.max_visitors)
         api = create_app(sessions, settings=settings, guard=guard)
     else:
         from api.main import build as build_local
 
         api = build_local()
+        guard = None
 
-    root = FastAPI(title="Tripwire", docs_url=None, redoc_url=None, openapi_url=None)
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        yield
+        if guard is not None:
+            guard.flush()  # write any spend still waiting for the next gist sync
+
+    root = FastAPI(title="Tripwire", docs_url=None, redoc_url=None, openapi_url=None, lifespan=lifespan)
 
     @root.get("/healthz")
     def healthz() -> dict[str, object]:

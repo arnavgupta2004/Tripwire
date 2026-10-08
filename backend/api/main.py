@@ -52,6 +52,8 @@ def _step_dict(step: Any) -> dict[str, Any]:
 CAP_MESSAGE = ("Tripwire's public demo has used today's model budget, so live chat is paused until "
                "tomorrow (UTC). The Evidence page still works, and you can run Tripwire locally with your "
                "own Token Factory key (see the README).")
+STATE_MESSAGE = ("Tripwire's public demo can't record its model spend right now, so live chat is paused "
+                 "until it can. Please try again in a few minutes; the Evidence page still works.")
 LIFETIME_CAP_MESSAGE = ("Tripwire's public demo has used its total model budget, so live chat is now closed. "
                         "The Evidence page still works, and you can run Tripwire locally with your own "
                         "Token Factory key (see the README).")
@@ -106,6 +108,8 @@ def create_app(provider: "Session | VisitorSessions", *, settings: Any = None, g
         return JSONResponse({"ok": False, "error": str(exc)}, status_code=400)
 
     def cap_message() -> str:
+        if guard is not None and guard.state_unavailable:
+            return STATE_MESSAGE
         return LIFETIME_CAP_MESSAGE if guard is not None and guard.lifetime_exhausted else CAP_MESSAGE
 
     def limited(conn: Any) -> str | None:
