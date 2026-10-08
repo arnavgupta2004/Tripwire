@@ -14,6 +14,16 @@ Ultra).
 > Status: early development. This is a new codebase written during the
 > submission period.
 
+## Live demo
+
+**Live demo hosted on Render: <https://tripwire-demo.onrender.com>.** It runs on Render's free tier,
+so the first visit after 15 idle minutes takes about a minute to wake. A deployment runbook for
+Nebius Serverless Endpoints is in [docs/deploy.md](docs/deploy.md); it has not been deployed yet.
+
+The public demo uses fictional files only, never delivers messages, gives each visitor an isolated
+session, and caps model spend at $0.75 a day and $15 in total. The end-to-end checks on the live URL
+are recorded in [demo/verification/render_public_checks.md](demo/verification/render_public_checks.md).
+
 ## Setup (development)
 
 ```bash

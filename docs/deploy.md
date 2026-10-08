@@ -1,5 +1,10 @@
 # Deploying the public demo
 
+**Where it runs today:** Render's free tier, at <https://tripwire-demo.onrender.com>; see
+[Render (live)](#render-live) below. The Nebius section after it is a runbook only: that
+deployment has **not** been made yet, because the account can't create AI Cloud resources
+without billing set up.
+
 One container serves everything: the API under `/api`, the built frontend at `/`,
 and liveness at `/healthz`. The image defaults to `PUBLIC_DEMO=true`:
 
@@ -13,6 +18,44 @@ and liveness at `/healthz`. The image defaults to `PUBLIC_DEMO=true`:
   - If the file can't be read or written, the app refuses to start. It never forgets spend silently.
 
 The image never contains secrets. `.env` is in `.dockerignore`, and keys come from Nebius MysteryBox.
+
+## Render (live)
+
+`render.yaml` defines a free Docker web service in Frankfurt.
+- **Build:** from this repo's Dockerfile, on every push to `main`.
+- **Health check:** `/healthz`.
+- **Storage:** Render's free tier has no persistent disk, so the spend caps live in a secret GitHub gist (`SPEND_STORE=gist`).
+  - The app finds that gist, "Tripwire public demo: spend caps (do not delete)", or creates it on first start.
+  - Writes are batched to one every 30 s, written at once when a cap is within $0.10, and flushed on shutdown.
+  - If the gist can't be read at startup, the app refuses to start.
+  - If writes fail for 2 minutes, chat pauses with a message until they succeed again.
+  - **Deleting the gist resets the caps.**
+- **Cost:** $0. Free instance hours (750/month) cover one service. With no card on file, exceeding any limit suspends the service rather than billing.
+
+**Secrets.** Set these in the dashboard under Environment. They are never in the repo.
+
+| Name | What |
+|---|---|
+| `NEBIUS_API_KEY` | A Token Factory key used only by this deployment. |
+| `SPEND_GIST_TOKEN` | A fine-grained GitHub token. Grant only **Account permissions → Gists: Read and write**, with no repository access. |
+
+**Deploy:**
+1. In the Render dashboard, choose New → Blueprint, pick this repo, enter the two secrets, then Apply.
+2. After that, every push to `main` redeploys.
+
+**Roll back:** in the dashboard, open Events, find an earlier deploy, and choose **Rollback**. The caps are unaffected, because they live in the gist.
+
+**Rotate keys:**
+1. Create the new key or token.
+2. Update it under Environment. Saving redeploys.
+3. Revoke the old one.
+
+**Check spend:**
+- `GET /api/health` → `budget` shows today's spend and lifetime spend against their caps.
+- The gist holds the same numbers.
+- Ground truth for model spend is the Token Factory usage page for the deployment key.
+
+**Verify:** run the checks in [demo/verification/render_public_checks.md](../demo/verification/render_public_checks.md). The most recent run passed all of them, including WebSockets and streaming.
 
 ## Sizing and cost (Nebius, eu-north1)
 
