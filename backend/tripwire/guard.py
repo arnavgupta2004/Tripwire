@@ -105,7 +105,9 @@ class GistSpendStore:
         except httpx.HTTPError as exc:
             raise SpendStateError(f"GitHub gist {method} failed ({type(exc).__name__})") from None
         if resp.status_code >= 300:
-            raise SpendStateError(f"GitHub gist {method} {path} returned {resp.status_code}")
+            hint = (" (GitHub answers 401/403/404 when the token lacks the account permission"
+                    " 'Gists: Read and write')") if resp.status_code in (401, 403, 404) else ""
+            raise SpendStateError(f"GitHub gist {method} {path} returned {resp.status_code}{hint}")
         return resp.json()
 
     def _find_or_create(self) -> str:
