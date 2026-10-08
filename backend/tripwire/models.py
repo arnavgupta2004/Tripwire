@@ -139,6 +139,9 @@ class ModelRouter:
         self.settings = settings
         self.bus = bus or EventBus()
         # The SDK's own retries are off so every attempt is counted and logged here.
+        if client is None and not settings.api_key:
+            raise ModelError("NEBIUS_API_KEY is not set. Copy .env.example to .env and add your Token Factory key "
+                             "(https://tokenfactory.nebius.com/).")
         self.client = client or OpenAI(api_key=settings.api_key, base_url=settings.base_url, max_retries=0)
         self.pricing = pricing or Pricing.from_file(settings.pricing_file)
         self.max_retries = max_retries

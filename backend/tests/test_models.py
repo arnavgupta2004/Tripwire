@@ -209,3 +209,12 @@ def test_settings_repr_hides_secrets():
     s = Settings(api_key="sk-secret-1", tavily_api_key="tvly-secret-2", telegram_bot_token="123:secret-3")
     text = repr(s) + str(s)
     assert "secret" not in text
+
+
+def test_missing_api_key_gives_a_clear_error():
+    from tripwire.config import Settings
+    from tripwire.events import EventBus
+    from tripwire.models import ModelError, ModelRouter
+
+    with pytest.raises(ModelError, match="NEBIUS_API_KEY is not set"):
+        ModelRouter(Settings(api_key="", models={"nano": "n"}), EventBus())
