@@ -243,7 +243,7 @@ function html() {
         <tr><td><strong>Evidence page</strong></td><td>the <em>Evidence</em> tab in the live demo (all suites, charts)</td></tr>
         <tr><td><strong>Repository</strong></td><td><a href="https://github.com/arnavgupta2004/Tripwire">github.com/arnavgupta2004/Tripwire</a>
           (full results: <span class="mono">evals/agentdojo/results.md</span>)</td></tr>
-        <tr><td><strong>Video</strong></td><td>coming soon</td></tr>
+        <tr><td><strong>Video</strong></td><td><a href="https://youtu.be/ETL9Pv2zUJU">youtu.be/ETL9Pv2zUJU</a></td></tr>
       </table>
     </div>
     <div>

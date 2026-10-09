@@ -3,7 +3,7 @@
 **A personal AI assistant that can't be turned against you.**
 
 **Live demo:** <https://tripwire-demo.onrender.com> ·
-**Video:** _coming soon_ ·
+**Video:** <https://youtu.be/ETL9Pv2zUJU> ·
 **Results:** [evals/agentdojo/results.md](evals/agentdojo/results.md)
 
 Tripwire researches the web, reads your files, remembers things and messages you
