@@ -14,7 +14,7 @@ real personal data appears.
 | Image | What it shows | Where the text comes from |
 |---|---|---|
 | `01_cover.png` | Title card and a crop of the blocked flow graph from 03 | Headline numbers read from `evals/agentdojo/results/results.json` (held-out Travel, Tripwire gateway) |
-| `02_reader_flag.png` | Poisoned-page demo, High-security mode, reader drawer | The reader's note is from the verified live runs (`demo/DEMO_SCRIPT.md`). The reply is from the public demo on 2026-10-08, with markdown asterisks removed. |
+| `02_reader_flag.png` | Poisoned-page demo, High-security mode, reader drawer | The reader's note is from the verified live runs (`demo/verification/default_demo_5_runs.txt`). The reply is from the public demo on 2026-10-08, with markdown asterisks removed. |
 | `03_blocked.png` | Blocked `fetch_url`, with the rule and Ultra's explanation | Recorded verbatim from the public demo on 2026-10-08 (`demo/verification/render_public_checks.md`, check 2). **That run used policy v2, now the `strict` profile.** Under the default v3 policy, this requested fetch is allowed; v3 hard-blocks R3 only when the call is unrequested and carries private data. |
 | `04_approval.png` | Approval card for sending private data to another chat (desktop) | The reason is verbatim from the live approval rehearsals (`R2.private_outbound`). The message arguments use the demo's fictional tax file. |
 | `05_architecture.png` | Architecture diagram | Drawn in HTML with the DESIGN.md tokens |

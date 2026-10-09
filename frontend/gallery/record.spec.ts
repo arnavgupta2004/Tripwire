@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { test, type Browser, type Page } from "@playwright/test";
 
-// Screen recordings for the demo video (demo/VIDEO_SCRIPT.md), one clip per scene, against the
+// Screen recordings for the demo video, one clip per scene, against the
 // real local app (live Nemotron calls). Off unless RECORD=1:
 //   RECORD=1 npx playwright test -c playwright.gallery.config.ts gallery/record.spec.ts
 // Needs the API on :8100 and the UI on :5173 started with TRIPWIRE_API=http://127.0.0.1:8100.
